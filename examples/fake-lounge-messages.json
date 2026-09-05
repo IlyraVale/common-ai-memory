@@ -1,0 +1,4 @@
+[
+  {"id": "msg-demo00001", "seq": 1, "ts": 1893488700, "author": "alice", "text": "Shall we test the shared room?"},
+  {"id": "msg-demo00002", "seq": 2, "ts": 1893488760, "author": "claude", "text": "Yes. I can see the demo message."}
+]

@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AI Lounge Bridge</title>
+<style>
+  body{font:13px system-ui;width:300px;margin:14px}
+  h2{font-size:13px;margin:14px 0 4px}
+  button{margin:5px 5px 0 0;padding:7px 10px}
+  .status{line-height:1.45}
+</style>
+<strong>AI Lounge Bridge 目标标签页</strong>
+<p>把当前激活的标签页绑定为 GPT 或 Claude 的投递目标。只有已绑定的标签页会被投递；未绑定时该目标保持 pending，不会自动挑选其他页面。</p>
+
+<h2>GPT（chatgpt.com / chat.openai.com）</h2>
+<p class="status" id="status-gpt">正在读取…</p>
+<button id="bind-gpt">绑定当前标签页</button><button id="unbind-gpt">解除绑定</button>
+
+<h2>Claude（claude.ai）</h2>
+<p class="status" id="status-claude">正在读取…</p>
+<button id="bind-claude">绑定当前标签页</button><button id="unbind-claude">解除绑定</button>
+
+<p><label>Bridge URL <input id="bridge-url" value="http://localhost:8879"></label><button id="save-url">Save URL</button></p>
+<script src="popup.js"></script>
+

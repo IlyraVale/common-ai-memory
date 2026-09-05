@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "mode": "manual",
+  "poll_seconds": 0.75,
+  "cooldown_seconds": 8,
+  "retry_base_seconds": 3,
+  "retry_max_seconds": 60,
+  "wake_timeout_seconds": 90,
+  "ack_timeout_seconds": 180,
+  "max_ai_rounds": 8,
+  "status_port": 8879,
+  "adapters": {"gpt": {"type": "browser"}, "claude": {"type": "browser"}},
+  "claude_min_wake_gap_seconds": 20,
+  "claude_retry_pause_seconds": 120,
+  "claude_max_delivery_attempts": 2,
+  "claude_lease_seconds": 90
+}

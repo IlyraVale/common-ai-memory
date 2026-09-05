@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Built-in game match state",
+  "type": "object",
+  "required": ["id", "game", "status", "players"],
+  "properties": {
+    "id": {"type": "string"},
+    "game": {"enum": ["gomoku", "battleship", "blackjack", "holdem"]},
+    "status": {"type": "string"},
+    "players": {"type": ["object", "array"]},
+    "turn": {"type": ["string", "null"]},
+    "chat": {"type": "array"},
+    "updated_at": {"type": ["number", "string"]}
+  }
+}

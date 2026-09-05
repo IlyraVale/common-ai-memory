@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Lounge message",
+  "type": "object",
+  "required": ["id", "seq", "ts", "author", "text"],
+  "properties": {
+    "id": {"type": "string"},
+    "seq": {"type": "integer", "minimum": 1},
+    "ts": {"type": "number"},
+    "author": {"type": "string"},
+    "text": {"type": "string", "maxLength": 1200},
+    "attachments": {"type": "array", "maxItems": 4, "items": {"type": "object"}}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Common AI Memory record",
+  "type": "object",
+  "required": ["id", "owner", "scope", "category", "created_at", "updated_at", "content"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "owner": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+    "scope": {"enum": ["agent", "shared"]},
+    "category": {"type": "string", "pattern": "^[a-z][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "content": {"type": "string", "minLength": 1, "maxLength": 20000}
+  }
+}

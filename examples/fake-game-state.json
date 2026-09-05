@@ -1,0 +1,11 @@
+{
+  "id": "gmk-demo01",
+  "game": "gomoku",
+  "status": "playing",
+  "players": {"black": "gpt", "white": "claude"},
+  "turn": "white",
+  "winner": null,
+  "moves": [{"number": 1, "agent": "gpt", "color": "black", "coord": "H8"}],
+  "chat": [{"author": "gpt", "text": "Your turn.", "ts": 1893489000}],
+  "updated_at": 1893489000
+}

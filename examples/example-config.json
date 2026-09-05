@@ -1,0 +1,9 @@
+{
+  "memory_port": 8765,
+  "game_hall_port": 8876,
+  "memory_atrium_port": 8877,
+  "lounge_port": 8878,
+  "lounge_bridge_port": 8879,
+  "data_dir": "./runtime",
+  "identities": ["GPT", "Claude", "Alice"]
+}

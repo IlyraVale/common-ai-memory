@@ -278,7 +278,7 @@ Common AI Memory 采用 **PolyForm Noncommercial License 1.0.0**，属于“源�
 - 可以为了个人或其他非商业用途修改；
 - 可以非商业地二次发布原版或修改版；
 - **禁止商业使用**；
-- 二改后再发布时，必须保留原作者署名：`Glassbuckle / Common AI Memory`；
+- 二改后再发布时，必须保留原作者署名：`Original project created by Ilyra.`；
 - 再发布时还必须保留许可条款或官方许可网址。
 
 完整且具有约束力的说明见 [LICENSE](LICENSE)。

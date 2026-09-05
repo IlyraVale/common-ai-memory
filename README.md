@@ -72,6 +72,6 @@ Common AI Memory is source-available under the **PolyForm Noncommercial License 
 - Noncommercial use is allowed.
 - Noncommercial modification and redistribution are allowed under the license terms.
 - Commercial use is not permitted.
-- Redistributed or modified copies must preserve the required attribution notice identifying the original project as `Glassbuckle / Common AI Memory`.
+- Redistributed or modified copies must preserve the required attribution notice: `Original project created by Ilyra.`
 
 See [LICENSE](LICENSE) for the controlling notice and the official PolyForm license URL.

@@ -110,7 +110,7 @@ GPT 和 Claude 应该分别运行自己的固定身份 MCP 进程，这样两边
 可以直接从 GitHub 下载源码，也可以使用 Git：
 
 ```powershell
-git clone https://github.com/Glassbuckle/common-ai-memory.git
+git clone https://github.com/IlyraVale/common-ai-memory.git
 cd common-ai-memory
 ```
 

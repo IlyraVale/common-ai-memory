@@ -71,8 +71,38 @@ class LoungeRoom:
         state.setdefault("next_seq", 1)
         readers = state.setdefault("readers", {})
         for agent in self.identities:
-            readers.setdefault(agent, {"last_read_seq": 0, "last_seen_at": None})
+            reader = readers.setdefault(agent, {"last_read_seq": 0, "last_seen_at": None})
+            reader.setdefault("delivered_seqs", [])
         return state
+
+    @staticmethod
+    def _incoming_visible(rows: list[dict[str, Any]], agent_id: str) -> list[dict[str, Any]]:
+        return [row for row in rows if row.get("author") != agent_id]
+
+    @staticmethod
+    def _record_delivered(reader: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+        current = int(reader.get("last_read_seq") or 0)
+        delivered = {int(seq) for seq in reader.get("delivered_seqs", []) if int(seq) > current}
+        delivered.update(int(row["seq"]) for row in rows if int(row["seq"]) > current)
+        reader["delivered_seqs"] = sorted(delivered)
+
+    @staticmethod
+    def _advance_delivered(reader: dict[str, Any], incoming: list[dict[str, Any]], ceiling: int | None = None) -> int:
+        """Advance only across incoming messages that were actually returned to this reader."""
+        current = int(reader.get("last_read_seq") or 0)
+        delivered = {int(seq) for seq in reader.get("delivered_seqs", []) if int(seq) > current}
+        for row in incoming:
+            seq = int(row["seq"])
+            if seq <= current:
+                continue
+            if ceiling is not None and seq > ceiling:
+                break
+            if seq not in delivered:
+                break
+            current = seq
+        reader["last_read_seq"] = current
+        reader["delivered_seqs"] = sorted(seq for seq in delivered if seq > current)
+        return current
 
     def _save_state(self, state: dict[str, Any]) -> None:
         tmp = self.state_path.with_suffix(".json.tmp")
@@ -123,15 +153,20 @@ class LoungeRoom:
             reader = state["readers"][self.agent_id]
             last_read = int(reader.get("last_read_seq") or 0)
             visible = [m for m in rows if self._visible_to(m)]
-            unread = [m for m in visible if int(m["seq"]) > last_read and m.get("author") != self.agent_id]
+            incoming = self._incoming_visible(visible, self.agent_id)
+            unread = [m for m in incoming if int(m["seq"]) > last_read]
             latest_seq = int(visible[-1]["seq"]) if visible else last_read
 
+            returned_unread = unread[:20]
+            recent = visible[-max(1, min(int(limit), 60)):]
+            returned_incoming = self._incoming_visible(recent, self.agent_id) + returned_unread
+            self._record_delivered(reader, returned_incoming)
+
             reader["last_seen_at"] = time.time()
-            if mark_read and visible:
-                reader["last_read_seq"] = latest_seq
+            if mark_read:
+                self._advance_delivered(reader, incoming)
             self._save_state(state)
 
-            recent = visible[-max(1, min(int(limit), 60)):]
             return {
                 "ok": True,
                 "game": "lounge",
@@ -139,7 +174,7 @@ class LoungeRoom:
                 "agent": self.agent_id,
                 "room": "main",
                 "unread_count": len(unread),
-                "unread": [self._with_readable_time(row) for row in unread[-20:]],
+                "unread": [self._with_readable_time(row) for row in returned_unread],
                 "recent": [self._with_readable_time(row) for row in recent],
                 "latest_seq": latest_seq,
                 "instructions": {
@@ -171,18 +206,20 @@ class LoungeRoom:
             last_read = int(reader.get("last_read_seq") or 0)
             visible = [row for row in rows if self._visible_to(row) and row.get("author") != self.agent_id]
             unread = [row for row in visible if int(row["seq"]) > last_read]
+            returned = unread[:limit]
+            self._record_delivered(reader, returned)
             reader["last_seen_at"] = time.time()
-            if mark_read and unread:
-                reader["last_read_seq"] = max(int(row["seq"]) for row in unread)
+            if mark_read:
+                self._advance_delivered(reader, visible)
             self._save_state(state)
             return {
                 "ok": True,
                 "agent": self.agent_id,
                 "unread_count": len(unread),
-                "messages": [self._with_readable_time(row) for row in unread[-limit:]],
+                "messages": [self._with_readable_time(row) for row in returned],
                 "last_read_seq": int(reader.get("last_read_seq") or 0),
                 "latest_visible_seq": int(visible[-1]["seq"]) if visible else last_read,
-                "marked_read": bool(mark_read and unread),
+                "marked_read": bool(mark_read and returned),
             }
         finally:
             self._release()
@@ -196,8 +233,9 @@ class LoungeRoom:
             current = int(reader.get("last_read_seq") or 0)
             visible = [row for row in rows if self._visible_to(row) and row.get("author") != self.agent_id]
             visible_seqs = {int(row["seq"]) for row in visible}
+            delivered_seqs = {int(seq) for seq in reader.get("delivered_seqs", [])}
             if sequence is None:
-                pending = [seq for seq in visible_seqs if seq > current]
+                pending = [seq for seq in delivered_seqs if seq > current]
                 sequence = max(pending) if pending else current
             try:
                 sequence = int(sequence)
@@ -207,7 +245,11 @@ class LoungeRoom:
                 return {"ok": False, "error": "sequence must be non-negative"}
             if sequence > current and sequence not in visible_seqs:
                 return {"ok": False, "error": "sequence is not a visible lounge message for this identity"}
-            reader["last_read_seq"] = max(current, sequence)
+            if sequence > current and sequence not in delivered_seqs:
+                return {"ok": False, "error": "sequence has not been returned to this identity"}
+            advanced = self._advance_delivered(reader, visible, ceiling=sequence)
+            if advanced < sequence:
+                return {"ok": False, "error": "earlier unread messages have not been returned to this identity"}
             reader["last_seen_at"] = time.time()
             self._save_state(state)
             return {"ok": True, "agent": self.agent_id, "last_read_seq": int(reader["last_read_seq"])}
@@ -316,7 +358,6 @@ class LoungeRoom:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             state["next_seq"] = seq + 1
             state["readers"][self.agent_id]["last_seen_at"] = row["ts"]
-            state["readers"][self.agent_id]["last_read_seq"] = seq
             self._save_state(state)
         finally:
             self._release()

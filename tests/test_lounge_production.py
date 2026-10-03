@@ -50,6 +50,42 @@ class LoungeTests(unittest.TestCase):
             self.assertEqual(gpt.inbox(mark_read=False)["messages"][-1]["text"], "broadcast hello")
             self.assertEqual(claude.inbox(mark_read=False)["messages"][-1]["text"], "broadcast hello")
 
+    def test_inbox_limit_marks_only_messages_actually_returned(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            alice = LoungeRoom(root, "alice")
+            claude = LoungeRoom(root, "claude")
+            for index in range(5):
+                alice.send("claude", f"message-{index}")
+
+            first = claude.inbox(limit=2, mark_read=True)
+            self.assertEqual([row["text"] for row in first["messages"]], ["message-0", "message-1"])
+            self.assertEqual(first["last_read_seq"], first["messages"][-1]["seq"])
+            second = claude.inbox(limit=10, mark_read=False)
+            self.assertEqual([row["text"] for row in second["messages"]], ["message-2", "message-3", "message-4"])
+
+    def test_sending_does_not_consume_unread_and_ack_requires_delivery(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            gpt = LoungeRoom(root, "gpt")
+            claude = LoungeRoom(root, "claude")
+            alice = LoungeRoom(root, "alice")
+            alice.send("gpt", "unread-before-send")
+            sent = gpt.send("claude", "outbound")
+            self.assertEqual(gpt.inbox(mark_read=False)["messages"][0]["text"], "unread-before-send")
+
+            for index in range(50):
+                alice.send("claude", f"queued-{index}")
+            last_seq = claude.status(mark_read=False)["recent"][-1]["seq"]
+            # A status response may expose the tail, but ack cannot skip an undisclosed gap.
+            self.assertFalse(claude.acknowledge(last_seq)["ok"])
+            while True:
+                batch = claude.inbox(limit=10, mark_read=False)
+                if not batch["messages"]:
+                    break
+                self.assertTrue(claude.acknowledge(batch["messages"][-1]["seq"])["ok"])
+            self.assertEqual(claude.inbox(mark_read=False)["unread_count"], 0)
+
     def test_viewer_serves_ui_and_posts_as_alice(self):
         with tempfile.TemporaryDirectory() as folder:
             Handler.root = Path(folder)

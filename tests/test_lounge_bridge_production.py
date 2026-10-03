@@ -71,12 +71,29 @@ class LoungeBridgeTests(unittest.TestCase):
             for call in wake.calls:
                 self.assertTrue(bridge.explicit_ack(call["target"], call["seq"]))
 
+            sent_gpt = LoungeRoom(root, "alice").send("gpt", "only gpt")
+            self.assertTrue(sent_gpt["ok"])
+            bridge.process_once(now=150)
+            self.assertEqual(wake.calls[-1]["target"], "gpt")
+            self.assertTrue(bridge.explicit_ack("gpt", sent_gpt["message"]["seq"]))
+
             wake2 = FakeWake()
             bridge2 = LoungeBridge(root, config("ai-chat"), wake2)
+            bridge2.set_mode("ai-chat")
             sent2 = LoungeRoom(root, "gpt").send("claude", "gpt to claude")
             self.assertTrue(sent2["ok"])
             bridge2.process_once(now=200)
             self.assertEqual([x["target"] for x in wake2.calls], ["claude"])
+
+    def test_ai_message_to_human_does_not_increment_round_counter(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            bridge = LoungeBridge(root, config("ai-chat"), FakeWake())
+            LoungeRoom(root, "gpt").send("alice", "private for human")
+            bridge.process_once(now=100)
+            conversation = bridge.status()["conversation"]
+            self.assertEqual(conversation["ai_messages"], 0)
+            self.assertEqual(conversation["ai_rounds"], 0)
 
     def test_failure_is_persisted_and_retried_until_ack(self):
         with tempfile.TemporaryDirectory() as folder:

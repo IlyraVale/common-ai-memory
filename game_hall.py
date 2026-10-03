@@ -213,6 +213,15 @@ class GameHall:
             return await adapter.action(self.agent_id, area, command)
         return {"ok": False, "error": f"unknown or unconfigured game: {game}"}
 
+    def lounge_send(self, target: str, text: str) -> dict[str, Any]:
+        return self._lounge.send(target=target, text=text)
+
+    def lounge_inbox(self, limit: int = 20, mark_read: bool = False) -> dict[str, Any]:
+        return self._lounge.inbox(limit=limit, mark_read=mark_read)
+
+    def lounge_ack(self, sequence: int | None = None) -> dict[str, Any]:
+        return self._lounge.acknowledge(sequence=sequence)
+
     def game_close(self, game: str) -> dict:
         game = (game or "").strip().lower()
         if game == "lounge":

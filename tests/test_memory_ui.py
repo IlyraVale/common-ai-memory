@@ -27,7 +27,7 @@ import memory_atrium
 from memory_manager import create_server as create_manager_server
 from memory_search import rebuild_project as rebuild_fts
 from memory_store import MemoryStore
-from memory_ui import create_ui_server
+from memory_ui import THEME_STORAGE_KEY, create_ui_server, inject_theme_css
 from memory_vectors import DEFAULT_MODEL_ID, _BACKEND_CACHE, rebuild_project as rebuild_vec
 
 HERE = Path(__file__).resolve().parent
@@ -117,6 +117,10 @@ class RoutingTests(UiBase):
             self.assertIn(path, text)
         self.assertIn('name="viewport"', text)
         self.assertIn("@media (max-width:600px)", text)
+        self.assertIn('data-theme-choice="mono"', text)
+        self.assertIn('data-theme-choice="glass"', text)
+        self.assertIn(THEME_STORAGE_KEY, text)
+        self.assertIn("contentDocument.documentElement.dataset.theme", text)
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         self.assertEqual(headers["X-Frame-Options"], "DENY")
 
@@ -127,7 +131,7 @@ class RoutingTests(UiBase):
         expected = memory_atrium.HTML
         for placeholder, target in (("__GAME_HALL_URL__", "games"), ("__LOUNGE_URL__", "lounge")):
             expected = expected.replace(f'href="{placeholder}" target="_blank"', f'href="/#{target}" target="_top"')
-        self.assertEqual(page, expected.encode("utf-8"))
+        self.assertEqual(page, inject_theme_css(expected).encode("utf-8"))
         self.assertNotIn(b"__GAME_HALL_URL__", page)
         self.assertNotIn(b"__LOUNGE_URL__", page)
         self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
@@ -164,6 +168,16 @@ class RoutingTests(UiBase):
             self.assertIn("script-src 'nonce-", headers["Content-Security-Policy"])
             self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
             self.assertEqual(headers["Cache-Control"], "no-store")
+
+    def test_theme_layer_reaches_every_integrated_page(self) -> None:
+        for path in ("/atrium", "/manage", "/duplicates", "/games", "/lounge"):
+            with self.subTest(path=path):
+                status, page, _ = self.request("GET", path)
+                self.assertEqual(status, 200)
+                text = page.decode("utf-8")
+                self.assertIn('id="cam-theme-core"', text)
+                self.assertIn('html[data-theme="mono"]', text)
+                self.assertIn('html[data-theme="glass"]', text)
 
     def test_token_never_in_pages_or_urls(self) -> None:
         token = self.request("GET", "/api/admin/session", ui=True)[1]["token"]

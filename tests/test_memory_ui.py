@@ -179,6 +179,18 @@ class RoutingTests(UiBase):
                 self.assertIn('html[data-theme="mono"]', text)
                 self.assertIn('html[data-theme="glass"]', text)
 
+    def test_lounge_theme_overrides_legacy_inline_colors(self) -> None:
+        text = self.request("GET", "/lounge")[1].decode("utf-8")
+        self.assertIn('html[data-theme="mono"] .topbar{color:#11110f!important}', text)
+        self.assertIn('html[data-theme="glass"] .topbar{color:#1f2421!important}', text)
+        self.assertIn('html[data-theme="glass"] .tagline{color:#68736d!important}', text)
+        self.assertIn('html[data-theme="glass"] .composer textarea{', text)
+        self.assertIn('background:transparent!important;color:#1f2421!important', text)
+        self.assertIn('html[data-theme="glass"] .drawer input', text)
+        self.assertIn('html[data-theme] .sea-card .sea-name', text)
+        self.assertIn('html[data-theme] .dealer-zone .section-title', text)
+        self.assertIn('html[data-theme] .poker-table .gpt', text)
+
     def test_token_never_in_pages_or_urls(self) -> None:
         token = self.request("GET", "/api/admin/session", ui=True)[1]["token"]
         for path in ("/", "/atrium", "/manage", "/duplicates"):

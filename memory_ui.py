@@ -255,7 +255,14 @@ html[data-theme="glass"] .composer-wrap{
   backdrop-filter:blur(24px) saturate(115%)!important;
 }
 html[data-theme="mono"] .topbar{height:64px!important}
+html[data-theme="mono"] .topbar{color:#11110f!important}
+html[data-theme="glass"] .topbar{color:#1f2421!important}
 html[data-theme="mono"] .tagline{letter-spacing:.16em!important;color:#777770!important}
+html[data-theme="glass"] .tagline{color:#68736d!important}
+html[data-theme="mono"] .person,html[data-theme="mono"] .mode-btn,html[data-theme="mono"] .bridge-state,
+html[data-theme="mono"] .updated{color:#5d5d56!important}
+html[data-theme="glass"] .person,html[data-theme="glass"] .mode-btn,html[data-theme="glass"] .bridge-state,
+html[data-theme="glass"] .updated{color:#59645e!important}
 html[data-theme="mono"] .bridge-mode{background:transparent!important;border-color:#c8c8c0!important;border-radius:999px!important}
 html[data-theme="glass"] .bridge-mode{background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.62)!important;border-radius:999px!important}
 html[data-theme="mono"] .mode-btn.active{background:#11110f!important;color:#fff!important}
@@ -275,12 +282,25 @@ html[data-theme="glass"] .bubble{
   border-color:rgba(255,255,255,.80)!important;box-shadow:0 12px 32px rgba(48,60,52,.06)!important;
   backdrop-filter:blur(18px)!important;
 }
+html[data-theme="mono"] .gpt .who{color:#11110f!important}
+html[data-theme="mono"] .claude .who{color:#55554e!important}
+html[data-theme="mono"] .alice .who{color:#65655e!important}
+html[data-theme="glass"] .gpt .who{color:#46554c!important}
+html[data-theme="glass"] .claude .who{color:#5c6861!important}
+html[data-theme="glass"] .alice .who{color:#536159!important}
 html[data-theme="mono"] .composer{
   background:#fff!important;border-color:#bdbdb5!important;border-radius:2px!important;box-shadow:none!important;
 }
 html[data-theme="glass"] .composer{
   background:rgba(255,255,255,.42)!important;border-color:rgba(255,255,255,.74)!important;
   border-radius:18px!important;box-shadow:0 14px 36px rgba(48,60,52,.07)!important;backdrop-filter:blur(20px)!important;
+}
+html[data-theme="glass"] .composer textarea{
+  background:transparent!important;color:#1f2421!important
+}
+html[data-theme="glass"] .drawer input,html[data-theme="glass"] .drawer textarea,
+html[data-theme="glass"] .drawer select{
+  background:rgba(255,255,255,.48)!important;color:#1f2421!important
 }
 html[data-theme="mono"] .gear,html[data-theme="mono"] .attach-btn,html[data-theme="mono"] .send{
   background:transparent!important;border-color:#c8c8c0!important;border-radius:2px!important;color:#22221f!important
@@ -320,6 +340,18 @@ html[data-theme="glass"] .tag{
   background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.62)!important;border-radius:999px!important;
 }
 /* Game pieces remain materially recognizable; theme only owns the surrounding product chrome. */
+html[data-theme] .sea-card .sea-name,
+html[data-theme] .sea-card .gpt,
+html[data-theme] .sea-card .claude{color:#dce8e1!important}
+html[data-theme] .sea-card .ready{color:#9fb5aa!important}
+html[data-theme] .sea-card .ready.yes{color:#8fc7a5!important}
+html[data-theme] .dealer-zone .section-title,
+html[data-theme] .dealer-zone .score,
+html[data-theme] .dealer-zone .score b{color:#dce8e1!important}
+html[data-theme] .poker-table .gpt,
+html[data-theme] .poker-table .claude,
+html[data-theme] .poker-table .muted,
+html[data-theme] .poker-table .stack{color:#c5d5cc!important}
 
 /* ---------- responsive ---------- */
 @media(max-width:720px){

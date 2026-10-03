@@ -273,11 +273,18 @@ class LoungeBridge:
                     self._suppress_pending("ai_round_limit")
 
             mode = self.state["mode"]
+            recipient = str(row.get("to") or "").strip().lower()
             targets: list[str] = []
             if mode in {"active", "ai-chat"} and author == self.human_id:
-                targets = ["gpt", "claude"]
+                if recipient:
+                    targets = [recipient] if recipient in AGENTS else []
+                else:
+                    targets = ["gpt", "claude"]
             elif mode == "ai-chat" and author in AGENTS and not convo["paused"]:
-                targets = ["claude" if author == "gpt" else "gpt"]
+                if recipient:
+                    targets = [recipient] if recipient in AGENTS and recipient != author else []
+                else:
+                    targets = ["claude" if author == "gpt" else "gpt"]
             else:
                 self.state["metrics"]["suppressed"] += 1
             for target in targets:

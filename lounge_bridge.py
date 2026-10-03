@@ -259,11 +259,12 @@ class LoungeBridge:
         last = int(self.state.get("last_scanned_seq", 0))
         for row in (item for item in self._messages() if item["seq"] > last):
             author = row["author"]
+            recipient = str(row.get("to") or "").strip().lower()
             convo = self.state["conversation"]
             if author == self.human_id:
                 self._suppress_pending("superseded_by_human")
                 convo.update({"generation": int(convo.get("generation", 0)) + 1, "ai_messages": 0, "ai_rounds": 0, "last_ai_author": None, "paused": False, "paused_at_seq": None})
-            else:
+            elif not recipient or recipient in AGENTS:
                 convo["ai_messages"] = int(convo.get("ai_messages", 0)) + 1
                 convo["ai_rounds"] = (convo["ai_messages"] + 1) // 2
                 convo["last_ai_author"] = author
@@ -273,7 +274,6 @@ class LoungeBridge:
                     self._suppress_pending("ai_round_limit")
 
             mode = self.state["mode"]
-            recipient = str(row.get("to") or "").strip().lower()
             targets: list[str] = []
             if mode in {"active", "ai-chat"} and author == self.human_id:
                 if recipient:

@@ -185,8 +185,9 @@ def dream_commit(dream_date: str, claim_token: str, content: str) -> dict:
 
 @mcp.tool()
 def wake(recent_limit: int = 5, include_dream: bool = True, dream_max_chars: int = DREAM_CONFIG.wake_chars) -> dict:
-    """Return recent memory, the current Dream, and at most one owner-bound pending Dream packet."""
+    """Return recent memory, unread Lounge inbox, Dream context, and at most one pending Dream packet."""
     packet = {"recent": store.recent(limit=max(0, min(int(recent_limit), 30)), owner=AGENT_ID)}
+    packet["lounge_inbox"] = game_hall.lounge_inbox(limit=20, mark_read=True)
     exposure_episode_id = f"wake:{secrets.token_urlsafe(18)}"
     if WITNESS_ENABLED:
         witness_store.expose(
@@ -284,6 +285,24 @@ async def game_status(game: str) -> dict:
             "error_type": type(exc).__name__,
             "error": _format_game_exception(exc),
         }
+
+
+@mcp.tool()
+def lounge_send(target: str, text: str) -> dict:
+    """Send a durable Lounge message to one configured identity, or use target='all' to broadcast."""
+    return game_hall.lounge_send(target=target, text=text)
+
+
+@mcp.tool()
+def lounge_inbox(limit: int = 20, mark_read: bool = True) -> dict:
+    """Read unread Lounge messages visible to this identity without any browser extension."""
+    return game_hall.lounge_inbox(limit=limit, mark_read=mark_read)
+
+
+@mcp.tool()
+def lounge_ack(sequence: int | None = None) -> dict:
+    """Advance this identity's Lounge inbox cursor after an explicit non-marking read."""
+    return game_hall.lounge_ack(sequence=sequence)
 
 
 @mcp.tool()

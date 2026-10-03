@@ -24,6 +24,32 @@ class LoungeTests(unittest.TestCase):
             self.assertTrue(all(re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", row["time"]) for row in status["recent"]))
             self.assertIn("alice", json.loads((root / ".lounge/state.json").read_text())["readers"])
 
+    def test_targeted_inbox_routes_without_exposing_to_other_agents(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            gpt = LoungeRoom(root, "gpt")
+            claude = LoungeRoom(root, "claude")
+            alice = LoungeRoom(root, "alice")
+
+            sent = gpt.send("claude", "private hello")
+            self.assertTrue(sent["ok"])
+            self.assertEqual(sent["message"]["to"], "claude")
+
+            claude_box = claude.inbox(mark_read=False)
+            self.assertEqual(claude_box["unread_count"], 1)
+            self.assertEqual(claude_box["messages"][0]["text"], "private hello")
+            self.assertEqual(alice.inbox(mark_read=False)["unread_count"], 0)
+            self.assertNotIn("private hello", [row["text"] for row in alice.status(mark_read=False)["recent"]])
+
+            ack = claude.acknowledge(claude_box["messages"][0]["seq"])
+            self.assertTrue(ack["ok"])
+            self.assertEqual(claude.inbox(mark_read=False)["unread_count"], 0)
+
+            broadcast = alice.send("all", "broadcast hello")
+            self.assertTrue(broadcast["ok"])
+            self.assertEqual(gpt.inbox(mark_read=False)["messages"][-1]["text"], "broadcast hello")
+            self.assertEqual(claude.inbox(mark_read=False)["messages"][-1]["text"], "broadcast hello")
+
     def test_viewer_serves_ui_and_posts_as_alice(self):
         with tempfile.TemporaryDirectory() as folder:
             Handler.root = Path(folder)

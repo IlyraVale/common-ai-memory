@@ -46,32 +46,241 @@ GAMES_PREFIX = "/api/games"
 LOUNGE_PREFIX = "/api/lounge"
 PAGES = {"atrium": "/atrium", "manage": "/manage", "duplicates": "/duplicates", "games": "/games", "lounge": "/lounge"}
 
+THEME_STORAGE_KEY = "common-ai-memory-theme"
+
+# Unified visual tokens are injected after each reused page's own CSS.  This keeps
+# the legacy viewers independently runnable while letting the integrated shell
+# present one coherent theme across Atrium, Manager, Games and Lounge.
+THEME_CORE_CSS = r"""
+<style id="cam-theme-core">
+html:not([data-theme]),html[data-theme="mono"]{
+  color-scheme:light;
+  --cam-bg:#f3f3ef;--cam-surface:#ffffff;--cam-surface-2:#f8f8f5;
+  --cam-text:#11110f;--cam-muted:#74746e;--cam-line:#d7d7d1;
+  --cam-line-strong:#b9b9b2;--cam-accent:#11110f;--cam-accent-text:#ffffff;
+  --cam-danger:#9b2f2f;--cam-ok:#356b48;--cam-radius:10px;
+  --cam-shadow:none;--cam-blur:0px;
+  --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
+  --chat-text:var(--cam-text);--muted:var(--cam-muted);--line:var(--cam-line);
+  --line2:var(--cam-line-strong);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
+  --card:var(--cam-surface);--page-bg:var(--cam-bg);--accent:var(--cam-accent);
+  --accent2:#40403b;--warm:#60605a;--soft:#5c5c56;--warn:#8b5a22;
+  --topbar-bg:#f3f3ef;--topbar-text:var(--cam-text);--input-bg:#ffffff;
+  --input-text:var(--cam-text);--input-placeholder:#92928b;--input-border:var(--cam-line-strong);
+  --gpt:#20201d;--claude:#55554f;--ok:#356b48;--danger:#9b2f2f;
+  --gpt-bubble:#ffffff;--claude-bubble:#ffffff;--alice-bubble:#f0f0ec;
+  --gpt-border-color:#bdbdb6;--claude-border-color:#bdbdb6;--alice-border-color:#a9a9a2;
+  --bubble-border-color:#bdbdb6;--bubble-opacity:100%;--bubble-border-opacity:100%;
+  --bubble-shadow-opacity:0%;--gpt-name:#11110f;--claude-name:#44443f;--alice-name:#686861;
+}
+html[data-theme="glass"]{
+  color-scheme:light;
+  --cam-bg:#dfe5df;--cam-surface:rgba(255,255,255,.56);--cam-surface-2:rgba(255,255,255,.36);
+  --cam-text:#1c211e;--cam-muted:#69716c;--cam-line:rgba(255,255,255,.62);
+  --cam-line-strong:rgba(67,78,71,.18);--cam-accent:#46564d;--cam-accent-text:#ffffff;
+  --cam-danger:#985858;--cam-ok:#50725d;--cam-radius:18px;
+  --cam-shadow:0 18px 50px rgba(55,69,60,.10);--cam-blur:22px;
+  --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
+  --chat-text:var(--cam-text);--muted:var(--cam-muted);--line:var(--cam-line-strong);
+  --line2:rgba(67,78,71,.25);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
+  --card:var(--cam-surface);--page-bg:var(--cam-bg);--accent:var(--cam-accent);
+  --accent2:#718078;--warm:#78837d;--soft:#5d6962;--warn:#8b6b47;
+  --topbar-bg:#e8ede9;--topbar-text:var(--cam-text);--input-bg:rgba(255,255,255,.58);
+  --input-text:var(--cam-text);--input-placeholder:#7f8983;--input-border:rgba(67,78,71,.20);
+  --gpt:#435149;--claude:#68746e;--ok:#50725d;--danger:#985858;
+  --gpt-bubble:#ffffff;--claude-bubble:#ffffff;--alice-bubble:#ffffff;
+  --gpt-border-color:rgba(255,255,255,.72);--claude-border-color:rgba(255,255,255,.72);
+  --alice-border-color:rgba(255,255,255,.82);--bubble-border-color:rgba(255,255,255,.72);
+  --bubble-opacity:48%;--bubble-border-opacity:75%;--bubble-shadow-opacity:8%;
+  --gpt-name:#445249;--claude-name:#657169;--alice-name:#55635b;
+}
+html:not([data-theme]) body,html[data-theme="mono"] body,html[data-theme="glass"] body{
+  background:var(--cam-bg)!important;color:var(--cam-text)!important;
+}
+html[data-theme="glass"] body{
+  background:
+    radial-gradient(circle at 14% 8%,rgba(255,255,255,.34),transparent 27%),
+    radial-gradient(circle at 86% 20%,rgba(255,255,255,.24),transparent 24%),
+    var(--cam-bg)!important;
+}
+html:not([data-theme]) body:before,html[data-theme="mono"] body:before,html[data-theme="glass"] body:before{
+  opacity:0!important;background:none!important;
+}
+html:not([data-theme]) .card,html:not([data-theme]) .panel,
+html[data-theme="mono"] .card,html[data-theme="mono"] .panel,
+html[data-theme="glass"] .card,html[data-theme="glass"] .panel{
+  background:var(--cam-surface)!important;border-color:var(--cam-line)!important;
+  border-radius:var(--cam-radius)!important;box-shadow:var(--cam-shadow)!important;
+  backdrop-filter:blur(var(--cam-blur));
+}
+html:not([data-theme]) .hero,html[data-theme="mono"] .hero{
+  background:var(--cam-surface)!important;border-color:var(--cam-line)!important;border-radius:0!important;
+  box-shadow:none!important;
+}
+html[data-theme="glass"] .hero{
+  background:var(--cam-surface)!important;border-color:var(--cam-line)!important;
+  border-radius:24px!important;box-shadow:var(--cam-shadow)!important;backdrop-filter:blur(var(--cam-blur));
+}
+html:not([data-theme]) .memory,html[data-theme="mono"] .memory,
+html[data-theme="glass"] .memory,
+html:not([data-theme]) .group,html[data-theme="mono"] .group,html[data-theme="glass"] .group,
+html:not([data-theme]) table,html[data-theme="mono"] table,html[data-theme="glass"] table{
+  background:var(--cam-surface-2)!important;border-color:var(--cam-line)!important;color:var(--cam-text)!important;
+}
+html[data-theme="mono"] .memory,html[data-theme="mono"] .group{border-radius:0!important}
+html[data-theme="glass"] .memory,html[data-theme="glass"] .group{border-radius:14px!important;backdrop-filter:blur(var(--cam-blur))}
+html:not([data-theme]) input,html:not([data-theme]) textarea,html:not([data-theme]) select,
+html[data-theme="mono"] input,html[data-theme="mono"] textarea,html[data-theme="mono"] select,
+html[data-theme="glass"] input,html[data-theme="glass"] textarea,html[data-theme="glass"] select{
+  background:var(--input-bg)!important;color:var(--cam-text)!important;border-color:var(--cam-line-strong)!important;
+  box-shadow:none!important;
+}
+html[data-theme="glass"] input,html[data-theme="glass"] textarea,html[data-theme="glass"] select{
+  backdrop-filter:blur(var(--cam-blur));
+}
+html:not([data-theme]) button,html[data-theme="mono"] button,html[data-theme="glass"] button{
+  border-color:var(--cam-line-strong);box-shadow:none;
+}
+html:not([data-theme]) button.primary,html[data-theme="mono"] button.primary,html[data-theme="glass"] button.primary,
+html:not([data-theme]) .search button,html[data-theme="mono"] .search button,html[data-theme="glass"] .search button{
+  background:var(--cam-accent)!important;color:var(--cam-accent-text)!important;border-color:var(--cam-accent)!important;
+}
+html[data-theme="mono"] .section:hover,html[data-theme="mono"] .section.active,
+html[data-theme="mono"] tr.row:hover,html[data-theme="mono"] tr.row.sel{
+  background:#ecece7!important;border-color:#cfcfc8!important;
+}
+html[data-theme="glass"] .section:hover,html[data-theme="glass"] .section.active,
+html[data-theme="glass"] tr.row:hover,html[data-theme="glass"] tr.row.sel{
+  background:rgba(255,255,255,.34)!important;border-color:rgba(255,255,255,.58)!important;
+}
+html:not([data-theme]) .owner,html[data-theme="mono"] .owner{
+  background:#fff!important;border-color:#cfcfc8!important;color:#4f4f49!important;border-radius:999px!important;
+}
+html[data-theme="mono"] .owner.active{background:#11110f!important;color:#fff!important;border-color:#11110f!important}
+html[data-theme="glass"] .owner{background:rgba(255,255,255,.34)!important;border-color:rgba(255,255,255,.66)!important;color:#59655e!important}
+html[data-theme="glass"] .owner.active{background:rgba(70,86,77,.86)!important;color:#fff!important;border-color:transparent!important}
+html:not([data-theme]) .game-link,html[data-theme="mono"] .game-link{
+  background:#fff!important;border-color:#cfcfc8!important;border-radius:0!important;
+}
+html[data-theme="glass"] .game-link{
+  background:rgba(255,255,255,.34)!important;border-color:rgba(255,255,255,.62)!important;border-radius:14px!important;
+}
+html:not([data-theme]) .topbar,html:not([data-theme]) .composer-wrap,
+html[data-theme="mono"] .topbar,html[data-theme="mono"] .composer-wrap,
+html[data-theme="glass"] .topbar,html[data-theme="glass"] .composer-wrap{
+  background:color-mix(in srgb,var(--topbar-bg) 78%,transparent)!important;border-color:var(--cam-line)!important;
+}
+html[data-theme="mono"] .topbar,html[data-theme="mono"] .composer-wrap{backdrop-filter:none!important}
+html[data-theme="glass"] .topbar,html[data-theme="glass"] .composer-wrap{backdrop-filter:blur(24px)!important}
+html:not([data-theme]) .composer,html[data-theme="mono"] .composer,
+html[data-theme="glass"] .composer{
+  background:var(--cam-surface)!important;border-color:var(--cam-line-strong)!important;box-shadow:var(--cam-shadow)!important;
+}
+html[data-theme="mono"] .composer{border-radius:4px!important}
+html[data-theme="glass"] .composer{border-radius:20px!important;backdrop-filter:blur(var(--cam-blur))}
+html:not([data-theme]) .bubble,html[data-theme="mono"] .bubble,
+html[data-theme="glass"] .bubble{color:var(--cam-text)!important}
+html[data-theme="mono"] .bubble{border-radius:3px!important;box-shadow:none!important}
+html[data-theme="glass"] .bubble{box-shadow:0 12px 32px rgba(55,69,60,.08)!important;backdrop-filter:blur(16px)}
+html:not([data-theme]) .toolbar,html[data-theme="mono"] .toolbar{
+  background:#fff!important;border-color:#d7d7d1!important;border-radius:0!important;backdrop-filter:none!important;
+}
+html[data-theme="glass"] .toolbar{
+  background:rgba(255,255,255,.42)!important;border-color:rgba(255,255,255,.64)!important;
+  border-radius:16px!important;box-shadow:var(--cam-shadow)!important;backdrop-filter:blur(var(--cam-blur))!important;
+}
+html:not([data-theme]) .stat,html[data-theme="mono"] .stat,
+html:not([data-theme]) .bj-player,html[data-theme="mono"] .bj-player{
+  background:#fff!important;border-color:#d7d7d1!important;border-radius:0!important;
+}
+html[data-theme="glass"] .stat,html[data-theme="glass"] .bj-player{
+  background:rgba(255,255,255,.32)!important;border-color:rgba(255,255,255,.58)!important;border-radius:14px!important;
+}
+html:not([data-theme]) .drawer,html[data-theme="mono"] .drawer{
+  background:#f6f6f2!important;border-color:#d7d7d1!important;box-shadow:-18px 0 42px rgba(0,0,0,.08)!important;
+}
+html[data-theme="glass"] .drawer{
+  background:rgba(242,246,243,.78)!important;border-color:rgba(255,255,255,.62)!important;
+  box-shadow:-18px 0 50px rgba(55,69,60,.14)!important;backdrop-filter:blur(26px);
+}
+html[data-theme="mono"] .welcome:before{color:#11110f!important}
+html[data-theme="glass"] .welcome:before{color:#66736b!important}
+html[data-theme="mono"] .hero:after{color:#11110f08!important}
+html[data-theme="glass"] .hero:after{color:#ffffff24!important}
+html[data-theme="mono"] .footer{color:#7b7b74!important}
+html[data-theme="glass"] .footer{color:#6e7872!important}
+</style>
+"""
+
+
+def inject_theme_css(html: str) -> str:
+    """Append the shared theme layer after a reused page's legacy styles."""
+    if 'id="cam-theme-core"' in html:
+        return html
+    if "</head>" not in html:
+        return html
+    return html.replace("</head>", THEME_CORE_CSS + "</head>", 1)
+
 SHELL = r"""<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN" data-theme="mono"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Common AI Memory</title>
 <style>
-:root{--bg:#f6f4ef;--fg:#222;--muted:#777;--line:#ddd;--accent:#7a3b2e}
-@media (prefers-color-scheme:dark){:root{--bg:#1b1a19;--fg:#eee;--muted:#aaa;--line:#3a3836;--accent:#e0a090}}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,"Microsoft YaHei",sans-serif}
-nav{display:flex;align-items:center;gap:4px;height:44px;padding:0 12px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
-nav b{margin-right:12px;font-weight:600;letter-spacing:.04em}
-nav a{color:var(--muted);text-decoration:none;padding:10px 12px;border-bottom:2px solid transparent}
-nav a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-iframe{display:block;width:100%;height:calc(100% - 45px);border:0}
-@media (max-width:600px){nav b{display:none}nav a{padding:10px 7px}}
+:root{--bg:#f3f3ef;--fg:#11110f;--muted:#74746e;--line:#d7d7d1;--panel:#fff;--accent:#11110f}
+html[data-theme="glass"]{--bg:#dfe5df;--fg:#1c211e;--muted:#69716c;--line:rgba(67,78,71,.18);--panel:rgba(255,255,255,.54);--accent:#46564d}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.4 Inter,system-ui,"Microsoft YaHei",sans-serif}
+body{transition:background .16s ease,color .16s ease}
+nav{display:flex;align-items:center;gap:2px;height:52px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;background:var(--panel)}
+html[data-theme="glass"] nav{background:rgba(255,255,255,.42);backdrop-filter:blur(22px)}
+nav b{margin-right:16px;font-size:12px;font-weight:700;letter-spacing:.08em}
+nav a{color:var(--muted);text-decoration:none;padding:17px 11px 15px;border-bottom:1px solid transparent}
+nav a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--fg)}
+nav a:focus-visible,.theme-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.spacer{flex:1}
+.theme-switch{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 72%,transparent)}
+.theme-switch button{border:0;background:transparent;color:var(--muted);font:600 10px/1 system-ui,sans-serif;letter-spacing:.06em;padding:7px 9px;border-radius:999px;cursor:pointer}
+.theme-switch button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+iframe{display:block;width:100%;height:calc(100% - 53px);border:0;background:var(--bg)}
+@media (max-width:600px){nav{padding:0 8px}nav b{display:none}nav a{padding:17px 7px 15px}.theme-switch button{padding:7px}}
 </style></head><body>
-<nav aria-label="Memory UI"><b>Common AI Memory</b>
-<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a></nav>
+<nav aria-label="Memory UI"><b>COMMON AI MEMORY</b>
+<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a>
+<span class="spacer"></span>
+<div class="theme-switch" role="group" aria-label="界面主题">
+<button type="button" data-theme-choice="mono" aria-pressed="true">MONO</button>
+<button type="button" data-theme-choice="glass" aria-pressed="false">GLASS</button>
+</div></nav>
 <iframe id="view" title="Memory UI"></iframe>
 <script nonce="__NONCE__">
 const PAGES = {atrium: "/atrium", manage: "/manage", duplicates: "/duplicates", games: "/games", lounge: "/lounge"};
+const THEME_KEY = "common-ai-memory-theme", THEMES = new Set(["mono","glass"]);
+const frame = document.getElementById("view");
+function savedTheme(){
+  try { const value = localStorage.getItem(THEME_KEY); return THEMES.has(value) ? value : "mono"; }
+  catch (_) { return "mono"; }
+}
+function syncFrameTheme(){
+  const theme = document.documentElement.dataset.theme || "mono";
+  try { if (frame.contentDocument) frame.contentDocument.documentElement.dataset.theme = theme; } catch (_) {}
+}
+function setTheme(theme, persist=true){
+  theme = THEMES.has(theme) ? theme : "mono";
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("[data-theme-choice]").forEach(button =>
+    button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme)));
+  if (persist) { try { localStorage.setItem(THEME_KEY, theme); } catch (_) {} }
+  syncFrameTheme();
+}
+document.querySelectorAll("[data-theme-choice]").forEach(button =>
+  button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
+frame.addEventListener("load", syncFrameTheme);
 function show() {
   const page = PAGES[location.hash.slice(1)] ? location.hash.slice(1) : "atrium";
   document.querySelectorAll("nav a").forEach(a => a.setAttribute("aria-current", a.dataset.page === page ? "page" : "false"));
-  const frame = document.getElementById("view");
   if (frame.getAttribute("src") !== PAGES[page]) frame.setAttribute("src", PAGES[page]);
+  else syncFrameTheme();
 }
+setTheme(savedTheme(), false);
 window.addEventListener("hashchange", show); show();
 </script></body></html>"""
 
@@ -91,7 +300,7 @@ def atrium_page() -> bytes:
     html = memory_atrium.HTML
     for placeholder, page in (("__GAME_HALL_URL__", "games"), ("__LOUNGE_URL__", "lounge")):
         html = html.replace(f'href="{placeholder}" target="_blank"', f'href="/#{page}" target="_top"')
-    return html.encode("utf-8")
+    return inject_theme_css(html).encode("utf-8")
 
 
 def viewer_page(html: str, replacements: tuple[tuple[str, str], ...]) -> tuple[bytes, str]:
@@ -99,6 +308,7 @@ def viewer_page(html: str, replacements: tuple[tuple[str, str], ...]) -> tuple[b
     nonce = secrets.token_urlsafe(16)
     for old, new in replacements:
         html = html.replace(old, new)
+    html = inject_theme_css(html)
     html = html.replace("<script>", f'<script nonce="{nonce}">')
     return html.encode("utf-8"), VIEWER_CSP.format(nonce=nonce)
 
@@ -319,7 +529,8 @@ def make_ui_handler(atrium: Any, api: ManagerApi, port: int, root: Path):
             if path in (PAGES["manage"], PAGES["duplicates"]):
                 page, csp = render_page(ADMIN_PREFIX, initial_tab="dups" if path == PAGES["duplicates"] else "list",
                                         embedded=True)
-                send(self, 200, page, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
+                themed = inject_theme_css(page.decode("utf-8")).encode("utf-8")
+                send(self, 200, themed, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
                 return
             if path in (PAGES["games"], PAGES["lounge"]):
                 module = games if path == PAGES["games"] else lounge

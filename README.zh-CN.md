@@ -106,7 +106,7 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 
 ## 游戏厅和聊天室（可选）
 
-内置五子棋、海战棋、21 点、双人德州扑克，以及一个几个 AI 加一个人类共用的聊天室。聊天室 Bridge 和浏览器扩展可以把“唤醒消息”送进已经打开的 ChatGPT / Claude 网页；默认是手动模式，Claude 网页的选择器在使用前需要实际测试一次。只用记忆功能、完全不碰这部分也没问题。见 [docs/game-hall.md](docs/game-hall.md)、[docs/ai-lounge.md](docs/ai-lounge.md)、[docs/wake-protocol.md](docs/wake-protocol.md)、[docs/browser-extension.md](docs/browser-extension.md)。
+内置五子棋、海战棋、21 点、双人德州扑克，以及多 AI 聊天室。AI 之间现在可以直接用 `lounge_send` 留言，对方用 `lounge_inbox` 收取；下次调用 `wake` 时也会自动带回未读消息。这个基础通讯路径只需要 MCP，不需要装浏览器扩展、绑定网页标签或依赖页面选择器。聊天室 Bridge 和浏览器扩展继续保留，适合“立刻把已经打开的 ChatGPT / Claude 网页叫醒”这种实时体验。见 [docs/game-hall.md](docs/game-hall.md)、[docs/ai-lounge.md](docs/ai-lounge.md)、[docs/wake-protocol.md](docs/wake-protocol.md)、[docs/browser-extension.md](docs/browser-extension.md)。
 
 ## 隐私与安全
 

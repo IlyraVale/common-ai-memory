@@ -182,14 +182,29 @@ class RoutingTests(UiBase):
     def test_lounge_theme_overrides_legacy_inline_colors(self) -> None:
         text = self.request("GET", "/lounge")[1].decode("utf-8")
         self.assertIn('html[data-theme="mono"] .topbar{color:#11110f!important}', text)
-        self.assertIn('html[data-theme="glass"] .topbar{color:#1f2421!important}', text)
-        self.assertIn('html[data-theme="glass"] .tagline{color:#68736d!important}', text)
+        self.assertIn('html[data-theme="glass"] .topbar{color:#462132!important}', text)
+        self.assertIn('html[data-theme="glass"] .tagline{color:#806675!important}', text)
         self.assertIn('html[data-theme="glass"] .composer textarea{', text)
-        self.assertIn('background:transparent!important;color:#1f2421!important', text)
+        self.assertIn('background:transparent!important;color:#462132!important', text)
         self.assertIn('html[data-theme="glass"] .drawer input', text)
         self.assertIn('html[data-theme] .sea-card .sea-name', text)
         self.assertIn('html[data-theme] .dealer-zone .section-title', text)
         self.assertIn('html[data-theme] .poker-table .gpt', text)
+
+    def test_glass_theme_uses_cool_pink_translucent_tokens_without_gradients(self) -> None:
+        text = self.request("GET", "/atrium")[1].decode("utf-8")
+        theme_css = text.split('<style id="cam-theme-core">', 1)[1].split('</style>', 1)[0]
+        self.assertIn('--cam-bg:#fff9fc', text)
+        self.assertIn('--cam-surface:rgba(255,255,255,.46)', text)
+        self.assertIn('--cam-surface-2:rgba(253,237,244,.34)', text)
+        self.assertIn('--cam-text:#462132', text)
+        self.assertIn('--cam-muted:#806675', text)
+        self.assertIn('backdrop-filter:blur(var(--cam-blur))', text)
+        self.assertIn('html[data-theme="glass"] .content', text)
+        self.assertIn('background:#a97a90!important;box-shadow:none!important', text)
+        self.assertNotIn('#d9ded8', text)
+        self.assertNotIn('#4d5e54', text)
+        self.assertNotIn('gradient(', theme_css.lower())
 
     def test_token_never_in_pages_or_urls(self) -> None:
         token = self.request("GET", "/api/admin/session", ui=True)[1]["token"]

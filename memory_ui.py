@@ -88,36 +88,36 @@ html:not([data-theme]),html[data-theme="mono"]{
 }
 html[data-theme="glass"]{
   color-scheme:light;
-  --cam-bg:#d9ded8;
-  --cam-surface:rgba(255,255,255,.52);
-  --cam-surface-2:rgba(255,255,255,.34);
-  --cam-text:#1f2421;
-  --cam-muted:#69716c;
-  --cam-line:rgba(255,255,255,.72);
-  --cam-line-strong:rgba(54,66,58,.16);
-  --cam-accent:#4d5e54;
+  --cam-bg:#fff9fc;
+  --cam-surface:rgba(255,255,255,.46);
+  --cam-surface-2:rgba(253,237,244,.34);
+  --cam-text:#462132;
+  --cam-muted:#806675;
+  --cam-line:rgba(255,255,255,.82);
+  --cam-line-strong:rgba(91,55,72,.14);
+  --cam-accent:#6c4055;
   --cam-accent-text:#ffffff;
-  --cam-danger:#925c5c;
-  --cam-ok:#57725f;
+  --cam-danger:#914f66;
+  --cam-ok:#74566a;
   --cam-radius:18px;
   --cam-control-radius:12px;
-  --cam-shadow:0 18px 48px rgba(48,60,52,.08);
+  --cam-shadow:0 18px 48px rgba(91,55,72,.08);
   --cam-blur:26px;
 
   --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
   --chat-text:var(--cam-text);--muted:var(--cam-muted);--line:var(--cam-line-strong);
-  --line2:rgba(54,66,58,.22);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
+  --line2:rgba(91,55,72,.20);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
   --card:var(--cam-surface);--page-bg:var(--cam-bg);--accent:var(--cam-accent);
-  --accent2:#6f7d75;--warm:#738078;--soft:#5f6b64;--warn:#826c4d;
-  --topbar-bg:#e7ebe6;--topbar-text:var(--cam-text);
-  --input-bg:rgba(255,255,255,.48);--input-text:var(--cam-text);--input-placeholder:#7f8782;
-  --input-border:rgba(54,66,58,.18);
-  --gpt:#46564c;--claude:#6f7a74;--ok:#57725f;--danger:#925c5c;
+  --accent2:#987487;--warm:#9a7889;--soft:#806675;--warn:#856873;
+  --topbar-bg:rgba(253,237,244,.46);--topbar-text:var(--cam-text);
+  --input-bg:rgba(255,255,255,.44);--input-text:var(--cam-text);--input-placeholder:#9a8290;
+  --input-border:rgba(91,55,72,.15);
+  --gpt:#604052;--claude:#806675;--ok:#74566a;--danger:#914f66;
   --gpt-bubble:#ffffff;--claude-bubble:#ffffff;--alice-bubble:#ffffff;
   --gpt-border-color:rgba(255,255,255,.82);--claude-border-color:rgba(255,255,255,.82);
   --alice-border-color:rgba(255,255,255,.90);--bubble-border-color:rgba(255,255,255,.82);
   --bubble-opacity:42%;--bubble-border-opacity:84%;--bubble-shadow-opacity:7%;
-  --gpt-name:#46554c;--claude-name:#68736d;--alice-name:#59675f;
+  --gpt-name:#604052;--claude-name:#806675;--alice-name:#725667;
 }
 
 html,body{transition:background-color .16s ease,color .16s ease}
@@ -148,8 +148,27 @@ html[data-theme="mono"] .feed-head h3{
 html[data-theme="glass"] .brand h1,
 html[data-theme="glass"] .hero h2,
 html[data-theme="glass"] .feed-head h3{
-  color:#202622!important
+  color:#462132!important
 }
+html[data-theme="glass"] .hero p,
+html[data-theme="glass"] .content,
+html[data-theme="glass"] .manual,
+html[data-theme="glass"] .event-body,
+html[data-theme="glass"] .quote,
+html[data-theme="glass"] .game-link span{
+  color:#6f5966!important
+}
+html[data-theme="glass"] .card-title,
+html[data-theme="glass"] .quote small,
+html[data-theme="glass"] .event-time,
+html[data-theme="glass"] .feed-head span{
+  color:#806675!important
+}
+html[data-theme="glass"] .dot,
+html[data-theme="glass"] .live-pill i{
+  background:#a97a90!important;box-shadow:none!important
+}
+html[data-theme="glass"] .live-pill{color:#806675!important}
 
 /* ---------- common surfaces ---------- */
 html:not([data-theme]) .card,html:not([data-theme]) .panel,
@@ -198,7 +217,7 @@ html:not([data-theme]) .search button,html[data-theme="mono"] .search button,htm
 html[data-theme="mono"] button:hover{background:#ecece7}
 html[data-theme="mono"] button.primary:hover,html[data-theme="mono"] .search button:hover{background:#2b2b27!important}
 html[data-theme="glass"] button:hover{background:rgba(255,255,255,.46)}
-html[data-theme="glass"] button.primary:hover,html[data-theme="glass"] .search button:hover{background:#5b6b62!important}
+html[data-theme="glass"] button.primary:hover,html[data-theme="glass"] .search button:hover{background:#7a4d63!important}
 
 /* ---------- Atrium / Manager ---------- */
 html[data-theme="mono"] .grid{gap:0!important}
@@ -227,9 +246,9 @@ html[data-theme="mono"] .owner{
 }
 html[data-theme="mono"] .owner.active{background:#11110f!important;color:#fff!important;border-color:#11110f!important}
 html[data-theme="glass"] .owner{
-  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.70)!important;color:#59655f!important
+  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.80)!important;color:#725667!important
 }
-html[data-theme="glass"] .owner.active{background:rgba(77,94,84,.88)!important;color:#fff!important;border-color:transparent!important}
+html[data-theme="glass"] .owner.active{background:rgba(243,220,230,.78)!important;color:#462132!important;border-color:rgba(255,255,255,.84)!important}
 html[data-theme="mono"] .game-link{
   background:transparent!important;border:1px solid #d0d0c8!important;border-radius:0!important;
 }
@@ -251,26 +270,26 @@ html[data-theme="mono"] .composer-wrap{
 }
 html[data-theme="glass"] .topbar,
 html[data-theme="glass"] .composer-wrap{
-  background:rgba(232,237,232,.56)!important;border-color:rgba(255,255,255,.62)!important;
+  background:rgba(253,237,244,.42)!important;border-color:rgba(255,255,255,.82)!important;
   backdrop-filter:blur(24px) saturate(115%)!important;
 }
 html[data-theme="mono"] .topbar{height:64px!important}
 html[data-theme="mono"] .topbar{color:#11110f!important}
-html[data-theme="glass"] .topbar{color:#1f2421!important}
+html[data-theme="glass"] .topbar{color:#462132!important}
 html[data-theme="mono"] .tagline{letter-spacing:.16em!important;color:#777770!important}
-html[data-theme="glass"] .tagline{color:#68736d!important}
+html[data-theme="glass"] .tagline{color:#806675!important}
 html[data-theme="mono"] .person,html[data-theme="mono"] .mode-btn,html[data-theme="mono"] .bridge-state,
 html[data-theme="mono"] .updated{color:#5d5d56!important}
 html[data-theme="glass"] .person,html[data-theme="glass"] .mode-btn,html[data-theme="glass"] .bridge-state,
-html[data-theme="glass"] .updated{color:#59645e!important}
+html[data-theme="glass"] .updated{color:#725667!important}
 html[data-theme="mono"] .bridge-mode{background:transparent!important;border-color:#c8c8c0!important;border-radius:999px!important}
 html[data-theme="glass"] .bridge-mode{background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.62)!important;border-radius:999px!important}
 html[data-theme="mono"] .mode-btn.active{background:#11110f!important;color:#fff!important}
-html[data-theme="glass"] .mode-btn.active{background:rgba(77,94,84,.82)!important;color:#fff!important}
+html[data-theme="glass"] .mode-btn.active{background:rgba(243,220,230,.82)!important;color:#462132!important}
 html[data-theme="mono"] .welcome{color:#777770!important}
 html[data-theme="mono"] .welcome:before{content:"—"!important;color:#11110f!important;font-size:14px!important}
-html[data-theme="glass"] .welcome{color:#717a74!important}
-html[data-theme="glass"] .welcome:before{color:#68766d!important}
+html[data-theme="glass"] .welcome{color:#806675!important}
+html[data-theme="glass"] .welcome:before{color:#987487!important}
 html[data-theme="mono"] .bubble{
   color:#11110f!important;border-radius:2px!important;box-shadow:none!important;
 }
@@ -278,42 +297,42 @@ html[data-theme="mono"] .gpt .bubble{background:#fff!important;border-color:#bdb
 html[data-theme="mono"] .claude .bubble{background:#f7f7f3!important;border-color:#c9c9c1!important}
 html[data-theme="mono"] .alice .bubble{background:#ecece7!important;border-color:#b8b8b0!important}
 html[data-theme="glass"] .bubble{
-  color:#1f2421!important;background:rgba(255,255,255,.40)!important;
-  border-color:rgba(255,255,255,.80)!important;box-shadow:0 12px 32px rgba(48,60,52,.06)!important;
+  color:#462132!important;background:rgba(253,237,244,.38)!important;
+  border-color:rgba(255,255,255,.84)!important;box-shadow:0 12px 32px rgba(91,55,72,.06)!important;
   backdrop-filter:blur(18px)!important;
 }
 html[data-theme="mono"] .gpt .who{color:#11110f!important}
 html[data-theme="mono"] .claude .who{color:#55554e!important}
 html[data-theme="mono"] .alice .who{color:#65655e!important}
-html[data-theme="glass"] .gpt .who{color:#46554c!important}
-html[data-theme="glass"] .claude .who{color:#5c6861!important}
-html[data-theme="glass"] .alice .who{color:#536159!important}
+html[data-theme="glass"] .gpt .who{color:#604052!important}
+html[data-theme="glass"] .claude .who{color:#806675!important}
+html[data-theme="glass"] .alice .who{color:#725667!important}
 html[data-theme="mono"] .composer{
   background:#fff!important;border-color:#bdbdb5!important;border-radius:2px!important;box-shadow:none!important;
 }
 html[data-theme="glass"] .composer{
   background:rgba(255,255,255,.42)!important;border-color:rgba(255,255,255,.74)!important;
-  border-radius:18px!important;box-shadow:0 14px 36px rgba(48,60,52,.07)!important;backdrop-filter:blur(20px)!important;
+  border-radius:18px!important;box-shadow:0 14px 36px rgba(91,55,72,.07)!important;backdrop-filter:blur(20px)!important;
 }
 html[data-theme="glass"] .composer textarea{
-  background:transparent!important;color:#1f2421!important
+  background:transparent!important;color:#462132!important
 }
 html[data-theme="glass"] .drawer input,html[data-theme="glass"] .drawer textarea,
 html[data-theme="glass"] .drawer select{
-  background:rgba(255,255,255,.48)!important;color:#1f2421!important
+  background:rgba(255,255,255,.48)!important;color:#462132!important
 }
 html[data-theme="mono"] .gear,html[data-theme="mono"] .attach-btn,html[data-theme="mono"] .send{
   background:transparent!important;border-color:#c8c8c0!important;border-radius:2px!important;color:#22221f!important
 }
 html[data-theme="glass"] .gear,html[data-theme="glass"] .attach-btn,html[data-theme="glass"] .send{
-  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.66)!important;color:#536159!important
+  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.76)!important;color:#725667!important
 }
 html[data-theme="mono"] .drawer{
   background:#f6f6f2!important;border-color:#d2d2ca!important;box-shadow:-18px 0 42px rgba(0,0,0,.06)!important;
 }
 html[data-theme="glass"] .drawer{
-  background:rgba(242,246,242,.74)!important;border-color:rgba(255,255,255,.66)!important;
-  box-shadow:-18px 0 50px rgba(48,60,52,.12)!important;backdrop-filter:blur(28px)!important;
+  background:rgba(255,249,252,.72)!important;border-color:rgba(255,255,255,.82)!important;
+  box-shadow:-18px 0 50px rgba(91,55,72,.10)!important;backdrop-filter:blur(28px)!important;
 }
 
 /* ---------- Game Hall ---------- */
@@ -377,7 +396,7 @@ SHELL = r"""<!doctype html>
 <title>Common AI Memory</title>
 <style>
 :root{--bg:#f3f3ef;--fg:#11110f;--muted:#74746e;--line:#d7d7d1;--panel:#fff;--accent:#11110f}
-html[data-theme="glass"]{--bg:#dfe5df;--fg:#1c211e;--muted:#69716c;--line:rgba(67,78,71,.18);--panel:rgba(255,255,255,.54);--accent:#46564d}
+html[data-theme="glass"]{--bg:#fff9fc;--fg:#462132;--muted:#806675;--line:rgba(91,55,72,.14);--panel:rgba(255,255,255,.46);--accent:#6c4055}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.4 Inter,system-ui,"Microsoft YaHei",sans-serif}
 body{transition:background .16s ease,color .16s ease}

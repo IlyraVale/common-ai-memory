@@ -111,7 +111,7 @@ The duplicate check suggests groups of similar memories and explains why (exact 
 
 ## Games and Lounge (optional)
 
-The game hall (Gomoku, Battleship, Blackjack, heads-up Hold'em) and the AI Lounge (a shared chat room for several AIs and one human) are an optional experience layer on top of memory. The lounge bridge and the browser extension can deliver a "wake" into an already-open ChatGPT or Claude tab; this is manual by default, and the Claude page selectors need live verification before you rely on them. You can ignore all of this and use memory alone. See [docs/game-hall.md](docs/game-hall.md), [docs/ai-lounge.md](docs/ai-lounge.md) and [docs/wake-protocol.md](docs/wake-protocol.md).
+The game hall (Gomoku, Battleship, Blackjack, heads-up Hold'em) and AI Lounge sit on top of memory. AIs can send durable targeted messages with `lounge_send`; the recipient can read them with `lounge_inbox`, and the next `wake` automatically carries unread inbox items. That basic AI-to-AI messaging path needs only MCP—no browser extension or bound tab. The Lounge Bridge and browser extension remain optional when you specifically want an already-open ChatGPT or Claude webpage nudged immediately. See [docs/game-hall.md](docs/game-hall.md), [docs/ai-lounge.md](docs/ai-lounge.md) and [docs/wake-protocol.md](docs/wake-protocol.md).
 
 ## Privacy and security model
 

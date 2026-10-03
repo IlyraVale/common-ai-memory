@@ -58,6 +58,26 @@ class LoungeBridgeTests(unittest.TestCase):
             LoungeBridge(root, config("active"), second).process_once(now=200)
             self.assertEqual(second.calls, [])
 
+    def test_targeted_message_only_wakes_named_recipient(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            wake = FakeWake()
+            bridge = LoungeBridge(root, config("active"), wake)
+            sent = LoungeRoom(root, "alice").send("claude", "only claude")
+            self.assertTrue(sent["ok"])
+            bridge.process_once(now=100)
+            self.assertEqual([x["target"] for x in wake.calls], ["claude"])
+
+            for call in wake.calls:
+                self.assertTrue(bridge.explicit_ack(call["target"], call["seq"]))
+
+            wake2 = FakeWake()
+            bridge2 = LoungeBridge(root, config("ai-chat"), wake2)
+            sent2 = LoungeRoom(root, "gpt").send("claude", "gpt to claude")
+            self.assertTrue(sent2["ok"])
+            bridge2.process_once(now=200)
+            self.assertEqual([x["target"] for x in wake2.calls], ["claude"])
+
     def test_failure_is_persisted_and_retried_until_ack(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

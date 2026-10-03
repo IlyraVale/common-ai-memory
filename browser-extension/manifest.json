@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Lounge Bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Delivers a fixed AI Lounge wake turn into an already-open GPT or Claude tab. Never fakes success; a missing target, unbound tab, or failed delivery is reported back and retried by the Lounge Bridge.",
   "permissions": ["alarms", "scripting", "storage", "tabs"],
   "host_permissions": ["http://localhost/*"],

@@ -1,0 +1,19 @@
+include LICENSE README.md README.zh-CN.md CHANGELOG.md THIRD_PARTY_NOTICES.md RELEASE_CHECKLIST.md SOURCE_AVAILABLE_AUDIT.md
+include .env.example owner-config.example.json
+graft docs
+graft examples
+graft schemas
+graft scripts
+graft tests
+graft integrations
+graft browser-extension
+prune build
+prune dist
+prune runtime
+prune data
+prune logs
+prune state
+prune memory
+prune dreams
+prune archive
+global-exclude __pycache__ *.py[cod] *.sqlite3 *.sqlite3-wal *.sqlite3-shm *.log .env owner-config.json

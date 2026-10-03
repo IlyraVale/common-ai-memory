@@ -1,8 +1,15 @@
-"""Environment configuration shared by the production-derived entry points."""
+"""Environment configuration shared by the Common AI Memory entry points."""
 from __future__ import annotations
 
 import os
 from pathlib import Path
+
+__version__ = "0.2.0"
+
+
+def data_root() -> Path:
+    """The runtime data directory every entry point defaults to (same rule as the MCP server)."""
+    return env_path("DATA_DIR", os.getenv("AI_MEMORY_ROOT", "./runtime"))
 
 
 def load_dotenv(path: str | Path | None = None) -> None:

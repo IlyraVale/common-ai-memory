@@ -11,6 +11,11 @@ from lounge_attachments import LoungeAttachmentError, LoungeAttachmentStore
 from lounge_room import LoungeRoom
 
 
+def wire_mime(content) -> str:
+    """MIME type as sent on the MCP wire (camelCase alias); stable across mcp 1.x and 2.x."""
+    return content.model_dump(by_alias=True, mode="json")["mimeType"]
+
+
 class LoungeAttachmentTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -69,12 +74,12 @@ class LoungeAttachmentTests(unittest.TestCase):
             contents = store.image_content(item["id"])
             self.assertEqual(contents[0].type, "image")
             expected_primary = "image/png" if item["mime"] == "image/apng" else item["mime"]
-            self.assertEqual(contents[0].mimeType, expected_primary)
+            self.assertEqual(wire_mime(contents[0]), expected_primary)
             self.assertGreater(len(contents[0].data), 20)
             self.assertEqual(len(contents), 2 if item["animated"] else 1)
             if item["animated"]:
-                self.assertEqual(contents[1].mimeType, "image/jpeg")
-            self.assertNotIn("image/apng", [content.mimeType for content in contents])
+                self.assertEqual(wire_mime(contents[1]), "image/jpeg")
+            self.assertNotIn("image/apng", [wire_mime(content) for content in contents])
 
     def test_rejects_spoofing_scripts_and_path_traversal(self) -> None:
         store = LoungeAttachmentStore(self.root)

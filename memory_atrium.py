@@ -558,9 +558,17 @@ def main():
     parser = argparse.ArgumentParser(description="Common AI Memory read-only visual atrium")
     parser.add_argument("--root", default=str(env_path("DATA_DIR", "./runtime")))
     parser.add_argument("--port", type=int, default=int(os.getenv("MEMORY_ATRIUM_PORT", "8877")))
+    parser.add_argument("--atrium-only", action="store_true",
+                        help="serve only the read-only Atrium (legacy); default is the unified memory UI")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
+    if not args.atrium_only:
+        from memory_ui import serve
+
+        # The unified UI (Atrium + manager + duplicate check) is localhost-only.
+        serve(root, host=os.getenv("CAM_BIND_HOST", "localhost"), port=args.port)
+        return
     Handler.app = MemoryAtrium(root)
     host = os.getenv("CAM_BIND_HOST", "localhost")
     server = ThreadingHTTPServer((host, args.port), Handler)

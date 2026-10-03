@@ -10,6 +10,19 @@
     "category": {"type": "string", "pattern": "^[a-z][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"},
     "created_at": {"type": "string"},
     "updated_at": {"type": "string"},
+    "status": {"enum": ["open", "done"]},
+    "source": {"enum": ["user_statement", "observed", "inferred"]},
+    "lifecycle": {"enum": ["active", "stale", "superseded", "review_needed"]},
+    "superseded_by": {"type": "string"},
+    "lifecycle_updated_at": {"type": "string"},
+    "verification": {"enum": ["unknown", "unverified", "confirmed", "partial", "not_applicable"]},
+    "verification_updated_at": {"type": "string"},
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(receipt|archive):[0-9a-f]{32}$", "maxLength": 96}
+    },
     "content": {"type": "string", "minLength": 1, "maxLength": 20000}
   }
 }

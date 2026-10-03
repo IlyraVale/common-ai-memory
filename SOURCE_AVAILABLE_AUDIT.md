@@ -10,7 +10,7 @@ The repository was built from an explicit production-code allowlist, then scanne
 
 ## Production extraction
 
-The detailed source-to-destination map and per-file transformations are in docs/provenance.md.
+The detailed source-to-destination map and per-file transformations are in docs/extraction-map.md.
 
 The following production files are normalized-text identical to their sources (line-ending and BOM differences only):
 
@@ -94,7 +94,7 @@ Third-party/private project names occur only in exclusion documentation and this
 ## Publication notes
 
 - Copyright holder and public license notice are now set in LICENSE.
-- The public repository uses PolyForm Noncommercial License 1.0.0 with a Required Notice identifying the original project as Glassbuckle / Common AI Memory.
+- The public repository uses PolyForm Noncommercial License 1.0.0 with a Required Notice identifying the original project as created by Ilyra (`Original project created by Ilyra.`).
 - Review third-party Python and browser-platform dependency licenses separately.
 - Review browser store policies and live-site selectors immediately before distribution.
 - Verify whether optional external systems have public official documentation before adding links.

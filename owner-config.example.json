@@ -1,0 +1,35 @@
+{
+  "owners": {
+    "default-owner": {
+      "dream_mode": "on_wake",
+      "dream_scraps_enabled": true,
+      "dream_scrap_ttl_hours": 72,
+      "dream_scrap_max_per_dream": 1,
+      "independent_witness_enabled": true,
+      "passive_recall_enabled": true
+    },
+    "preferred-cli-owner": {
+      "dream_mode": "on_wake",
+      "dream_preferred_runner": "cli",
+      "dream_cli_profile": "codex",
+      "dream_cli_executable": "codex",
+      "dream_timeout_seconds": 300
+    },
+    "local-cli-owner": {
+      "dream_mode": "cli",
+      "dream_cli": [
+        "example-agent",
+        "--non-interactive"
+      ],
+      "dream_model": null,
+      "dream_timeout_seconds": 180
+    },
+    "api-owner": {
+      "dream_mode": "api",
+      "dream_api_adapter": "provider-adapter-name",
+      "dream_api_key_env": "DREAM_API_KEY",
+      "dream_model": "example-model",
+      "dream_timeout_seconds": 180
+    }
+  }
+}

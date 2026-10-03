@@ -5,10 +5,11 @@ from config import load_dotenv
 
 load_dotenv()
 
+ui_port = int(os.getenv("MEMORY_UI_PORT", os.getenv("MEMORY_ATRIUM_PORT", "8877")))
 checks = {
-    "memory-atrium": (int(os.getenv("MEMORY_ATRIUM_PORT", "8877")), "/api/home"),
-    "game-hall": (int(os.getenv("GAME_HALL_PORT", "8876")), "/api/matches"),
-    "ai-lounge": (int(os.getenv("LOUNGE_PORT", "8878")), "/api/state"),
+    "memory-ui": (ui_port, "/health"),
+    "game-hall": (ui_port, "/api/games/matches"),
+    "ai-lounge": (ui_port, "/api/lounge/state"),
     "lounge-bridge": (int(os.getenv("LOUNGE_BRIDGE_PORT", "8879")), "/v1/status"),
 }
 for name, (port, path) in checks.items():

@@ -2,277 +2,150 @@
 
 [English](README.md) | 简体中文
 
-Common AI Memory 是一套给多个 AI 共用的本地“记忆库 + 游戏厅 + 公共聊天室”。
+Common AI Memory 是一个跑在你自己电脑上的 AI 长期记忆服务。每条记忆都是一个普通的 Markdown 文件，任何支持 MCP 的客户端（比如接入 ChatGPT、Claude 的应用）都可以通过 `remember`、`recall`、`recent`、`update_memory`、`forget` 等工具读写它。另外有一个本地网页，你自己也能浏览、编辑、整理这些记忆。
 
-它不是单纯保存聊天记录，而是让 ChatGPT、Claude 等不同 AI 在你自己的电脑上，共用一套长期数据和互动空间。
+版本 0.2.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
 
-简单理解：
+## 它不是什么
 
-```text
-你
- ↓
-Common AI Memory
- ├─ Shared Memory   共享记忆
- ├─ Game Hall       游戏厅
- └─ AI Lounge       AI 公共聊天室
-        ↓
-      Bridge
-        ↓
-   浏览器扩展
-    ↙      ↘
- ChatGPT  Claude
-```
+- **不是 agent。** 它不会自己行动、不会聊天、不会上网，也不会替你判断什么是真的。是模型调用它的工具，或者你在网页里改它。
+- **不是云端记忆服务。** 没有服务器、没有账号。除非你自己把端口暴露出去，数据不会离开你的电脑。可选的语义检索用的是本地模型，不调用云端 API。
+- **不是事实核查器。** “验证状态”“生命周期”记录的是有人明确标注过的结论，系统不会自己推断。
 
-## 它能干什么？
+## 核心设计
 
-### 1. Shared Memory：让不同 AI 共用长期记忆
+- **Markdown 是唯一事实来源。** 每条记忆一个文件，放在 `DATA_DIR/memory/` 下，可以直接阅读、备份或用 Git 管理。
+- **本地优先。** 默认只绑定本机地址，网页界面拒绝非本机访问。
+- **按身份隔离。** 每个 MCP 进程有一个固定身份（`AI_MEMORY_AGENT`）。大家都能读，只有写入者本人能修改或删除自己的记忆；调用方无法冒充别的身份写入。
+- **派生索引可以随时删掉重建。** `DATA_DIR/state/` 里的全文索引和可选的向量索引删了也不会丢记忆。（同目录下的回执和账本是历史记录，备份时请一起带上，见[升级与备份](docs/upgrading.md)。）
 
-GPT 和 Claude 可以读取同一个记忆库。
-
-例如：
-
-- GPT 记住了一个项目进度，Claude 以后也可以读到；
-- Claude 写下的记忆，GPT 也可以查看；
-- 每个 AI 只能修改或删除自己写的记忆，避免互相乱改；
-- 支持搜索、最近记忆、更新、删除；
-- 记忆以 Markdown 文件保存在你自己的电脑上，不依赖云端数据库。
-
-同时带有 Memory Atrium（记忆中庭）网页，可以用浏览器查看记忆、搜索内容和查看读取活动。
-
-### 2. Game Hall：让 AI 一起玩游戏
-
-项目内置了几个可以真正保存局面、轮流行动的小游戏：
-
-- 五子棋（Gomoku）
-- 海战棋（Battleship）
-- 21 点（Blackjack）
-- 双人德州扑克（Heads-up Holdem）
-
-GPT 和 Claude 可以通过 MCP 工具读取当前局面、行动、聊天和等待对方回合。
-
-还带有观战页面，可以直接在浏览器里看棋盘或牌局状态。
-
-### 3. AI Lounge：给多个 AI 一个公共聊天室
-
-AI Lounge 可以理解成一个“AI 客厅”。
-
-GPT、Claude 和一个可配置的人类身份可以在里面：
-
-- 发消息；
-- 查看新消息；
-- 记录已读 / 未读；
-- 发送附件；
-- 进行游戏桌边聊天；
-- 通过 wake 机制提醒另一个 AI 来处理新消息。
-
-### 4. Lounge Bridge：自动把消息送到网页里的 AI
-
-Bridge 会观察 AI Lounge 是否有需要某个 AI 处理的新消息，然后通过浏览器扩展，把固定 wake 消息送进已经打开的 ChatGPT / Claude 网页。
-
-它带有完整的：
-
-- pending 状态；
-- lease（处理租约）；
-- 超时重试；
-- retry backoff；
-- browser-result；
-- ACK；
-- 重复结果 / 过期结果拒绝。
-
-也就是说，不是“发一下就不管了”，而是会确认这次唤醒有没有真正送达和处理。
-
-### 5. MCP：让 AI 真正调用这些功能
-
-Common AI Memory 提供 MCP 工具，AI 可以直接调用，而不是靠你手动复制粘贴数据。
-
-包括：
-
-- 记忆工具；
-- 游戏工具；
-- AI Lounge 工具；
-- 附件读取；
-- wake ACK。
-
-GPT 和 Claude 应该分别运行自己的固定身份 MCP 进程，这样两边不会混淆身份。
-
----
-
-## 最简单的安装方法
-
-要求：
-
-- Python 3.10 或更高版本；
-- 如果要测试浏览器扩展，需要 Node.js；
-- Git 和 FFmpeg 不是所有功能都必须，但部分功能会用到。
-
-### 第一步：下载项目
-
-可以直接从 GitHub 下载源码，也可以使用 Git：
+## 安装
 
 ```powershell
 git clone https://github.com/IlyraVale/common-ai-memory.git
 cd common-ai-memory
+py -3.10 -m venv .venv               # macOS/Linux: python3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1          # macOS/Linux: . .venv/bin/activate
+pip install -e .
+Copy-Item .env.example .env           # macOS/Linux: cp .env.example .env
 ```
 
-### 第二步：创建 Python 虚拟环境
+建议单独建一个虚拟环境：这个包的模块是直接装在顶层的（`server`、`config` 等），和别的项目混在一个环境里可能重名。
 
-Windows PowerShell：
+可选：`pip install -e ".[semantic]"`（本地语义检索）、`pip install -e ".[test]"`（测试）。
+
+## 最小启动
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+python server.py             # 或：common-ai-memory-mcp
 ```
 
-### 第三步：创建本地配置
+MCP 地址是 `http://localhost:8765/mcp`（Streamable HTTP），身份来自 `.env` 里的 `AI_MEMORY_AGENT`（示例是 `gpt`）。数据放在 `DATA_DIR`（默认 `./runtime`），第一次使用时自动创建。
+
+想一次性把 MCP、网页界面和聊天室 Bridge 都起来：`python launcher.py`（或 `common-ai-memory`）。
+
+从零到“记住一条、查回来、打开网页”的最短路径见 **[docs/quickstart.md](docs/quickstart.md)**，里面带一个不需要任何聊天软件的测试客户端。
+
+## 连接 MCP 客户端
+
+任何支持 Streamable HTTP 的 MCP 客户端都可以连 `http://localhost:8765/mcp`。每个 AI 用自己的进程和端口：
 
 ```powershell
-Copy-Item .env.example .env
-New-Item -ItemType Directory -Force runtime/.lounge-bridge
-Copy-Item examples/lounge-bridge-config.json runtime/.lounge-bridge/config.json
+$env:AI_MEMORY_AGENT="claude"; $env:MEMORY_PORT="8766"; python server.py
 ```
 
-默认配置可以先直接用，后面再按需要修改 `.env`。
+工具列表见 [docs/mcp-api.md](docs/mcp-api.md)。如果要让远程网页上的 AI 连到你电脑上的 MCP，需要你自己准备带认证的 HTTPS 网关，仓库里不包含任何隧道或凭据。
 
-### 第四步：启动主要服务
+## 统一网页界面
 
 ```powershell
-python launcher.py
+python memory_ui.py          # 或：common-ai-memory-ui
 ```
 
-默认情况下，`launcher.py` 会启动一套 GPT 身份的 MCP 服务（默认端口 8765），以及项目里的其他本地服务。
+打开 `http://127.0.0.1:8877/`（端口由 `MEMORY_UI_PORT` 决定）。一个页面五个分区：
 
-如果你还想让 Claude 连接同一个 Common AI Memory，需要另外开一个 PowerShell 窗口运行：
+- **中庭**：只读总览、搜索、活动记录；
+- **管理**：修改内容、分类、生命周期、验证状态，走和 MCP 相同的写入接口，有身份检查和“防止覆盖别人刚改过的内容”的保护；
+- **重复检查**：把完全相同、字面相近、（可选）语义相近的记忆分组给你看；
+- **游戏厅**、**聊天室**：可选的体验层。
 
-```powershell
-$env:AI_MEMORY_AGENT="claude"
-$env:MEMORY_PORT="8766"
-python server.py
-```
+`python memory_services.py status` 查看运行状态，`start` 在没运行时把界面拉起来。
 
-GPT 和 Claude 要使用不同端口，也要使用不同固定身份。
+## 检索与混合检索
 
----
+`recall` 优先用 SQLite FTS5/BM25 全文索引，索引缺失或损坏时自动退回原来的 Markdown 词法检索，所以一定能用。装了 `semantic` 后会加上本地多语言向量检索，两路结果用 RRF 合并，完全匹配的内容始终排在只靠语义命中的前面。没装就安静地只用词法检索。`common-ai-memory-doctor` 查看各个索引的状态，`common-ai-memory-search rebuild` / `common-ai-memory-vectors rebuild` 重建。详见 [docs/retrieval-doctor.md](docs/retrieval-doctor.md)。
 
-## 浏览器扩展怎么用？
+## 生命周期与验证
 
-仓库里的 `browser-extension/` 是一个浏览器扩展。
+- `status`（`open` / `done`）：任务是否完成；
+- `source`（`user_statement` / `observed` / `inferred`）：来源；
+- `lifecycle`（`active` / `review_needed` / `stale` / `superseded`）：现在是否还适用，`stale` 和 `superseded` 默认不出现在 recall 里；
+- `verification`（`unknown` / `unverified` / `confirmed` / `partial` / `not_applicable`）：有人明确标注的验证状态，默认 `unknown`，系统从不自动修改。
 
-它的作用不是代替 MCP，而是把 Lounge Bridge 产生的 wake 消息自动投递到已经打开的 ChatGPT 或 Claude 页面。
+`evidence_refs` 可以指向执行回执或归档条目。回执只证明“某个操作发生过”，不证明记忆内容是真的。`memory_provenance` 可以查看一条记忆的来龙去脉，只返回元数据，不返回正文。见 [docs/memory-system.md](docs/memory-system.md)、[docs/provenance.md](docs/provenance.md)。
 
-基本流程：
+## Dream 的三种模式
 
-1. 在 Chrome / Edge 的扩展管理页面打开“开发者模式”；
-2. 选择“加载已解压的扩展程序”；
-3. 选择项目里的 `browser-extension/` 文件夹；
-4. 在扩展中设置本机 Bridge 地址；
-5. 分别绑定已经打开的 ChatGPT / Claude 标签页；
-6. 确认 AI 本身也已经连接对应的 Common AI Memory MCP。
+Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普通记忆，也不会被 recall 搜到。
 
-注意：浏览器扩展负责“把 wake 消息送进网页”，MCP 负责“让 AI 调用记忆、游戏、Lounge 等工具”。这两个不是一回事，需要分别配置。
+| 模式 | 需要什么 | 谁来写 |
+|---|---|---|
+| `on_wake`（默认） | 什么都不需要 | 聊天模型调用 `wake` 之后自己写 |
+| `cli` | 你自己装好并登录的本地命令行工具 | 夜间任务调用那个工具 |
+| `api` | 你自己注册的适配器 + 放在环境变量里的 API key | 你的适配器 |
 
----
+`on_wake` 的身份也可以设置“优先用本地 CLI”，CLI 不在、没登录或失败时自动退回 `on_wake`，绝不编一个假梦。默认模式不需要定时任务、CLI 或 API key。详见 [docs/dreams.md](docs/dreams.md)。
 
-## 我只想用共享记忆，可以吗？
+## Passive Recall 的真实限制
 
-可以。
+`recall(query, passive=true)` 在对话提到具体的项目、偏好、旧决定时，最多返回三条短摘要，返回零条也很正常。MCP 没有“每一轮对话都触发”的钩子，服务器看不到对话内容，所以只有宿主或模型主动调用时才会发生。它不写入、不验证、不改排序。
 
-你不一定非要使用 Game Hall、AI Lounge 或浏览器扩展。Shared Memory 本身就是独立可用的核心功能。
+## 重复检查与管理
 
-同样，如果你只想让两个 AI 在 Lounge 聊天，也可以只启用对应部分。
+重复检查只负责“提建议、说理由”（完全相同、字面重合、装了向量时的语义相似），不会自己合并、删除或标记过时，也判断不了两条冲突的记忆谁对。保留哪条、改哪条、哪条标成 superseded，由你在管理页决定。
 
----
+## 游戏厅和聊天室（可选）
 
-## 数据保存在哪里？
+内置五子棋、海战棋、21 点、双人德州扑克，以及一个几个 AI 加一个人类共用的聊天室。聊天室 Bridge 和浏览器扩展可以把“唤醒消息”送进已经打开的 ChatGPT / Claude 网页；默认是手动模式，Claude 网页的选择器在使用前需要实际测试一次。只用记忆功能、完全不碰这部分也没问题。见 [docs/game-hall.md](docs/game-hall.md)、[docs/ai-lounge.md](docs/ai-lounge.md)、[docs/wake-protocol.md](docs/wake-protocol.md)、[docs/browser-extension.md](docs/browser-extension.md)。
 
-公开版默认把运行时数据放在本地 `runtime/` 等目录中。
+## 隐私与安全
 
-这些运行数据已经加入 `.gitignore`，不会因为你正常使用 Git 就被上传到公开仓库。
+- 所有服务默认只绑定本机。网页界面会检查 Host（防 DNS 重绑定）、拒绝跨站请求、使用严格的 CSP 和 `no-store`，管理令牌只存在页面内存里。
+- 日志和回执只记元数据，从不记录记忆正文、提示词或查询内容。
+- `.env`、`owner-config.json` 和 `DATA_DIR` 下的一切都是私人数据，已加入 `.gitignore`，不要提交。
+- 远程访问需要你自己负责加认证的 HTTPS 网关，或者干脆不开放。
 
-这个源码公开仓库本身不包含作者的真实记忆、聊天记录、账号、浏览器登录状态、OAuth 凭据或私人游戏数据。
+详见 [docs/privacy.md](docs/privacy.md)。
 
----
+## 备份与恢复
 
-## 这个项目现在是什么状态？
+备份整个 `DATA_DIR`（`memory/`、`dreams/`、`archive/`、`state/` 和可选的游戏、聊天室目录），再加上 `.env` 和 `owner-config.json`。只要 Markdown 还在，记忆就都能恢复，索引可以重建。升级不会覆盖你的数据。详见 [docs/upgrading.md](docs/upgrading.md)。
 
-当前公开版本是 `v0.1.0`。
+## 常见问题
 
-已经实际测试过：
+- MCP 客户端连不上：确认服务器在运行，地址以 `/mcp` 结尾，端口和 `MEMORY_PORT` 一致；
+- 检索效果变差：运行 `common-ai-memory-doctor`，提示索引过期就重建；
+- 网页端口被占用：`python memory_services.py status` 看看是谁，或者改 `MEMORY_UI_PORT`。
 
-- Shared Memory；
-- Memory Atrium；
-- Game Hall；
-- 内置小游戏；
-- AI Lounge；
-- Bridge / Wake / Lease / Retry / ACK；
-- 浏览器扩展；
-- MCP 工具；
-- 多进程并发写入；
-- 运行时路径隐私；
-- 公开发布前脱敏；
-- Python wheel 安装。
+更多见 [docs/troubleshooting.md](docs/troubleshooting.md)。
 
-Python 测试和浏览器扩展测试均已通过，发布的 wheel 也在全新 Python 3.10 虚拟环境中验证过安装、依赖和 CLI 入口。
+## 文档
 
----
+[快速开始](docs/quickstart.md) · [配置](docs/configuration.md) · [功能成熟度与限制](docs/features.md) · [MCP API](docs/mcp-api.md) · [记忆系统](docs/memory-system.md) · [检索](docs/retrieval-doctor.md) · [溯源](docs/provenance.md) · [Dream](docs/dreams.md) · [部署与界面](docs/deployment.md) · [升级与备份](docs/upgrading.md) · [隐私](docs/privacy.md) · [架构](docs/architecture.md) · [第三方声明](THIRD_PARTY_NOTICES.md)
 
-## 一个重要提醒：Claude 网页自动投递
-
-Claude 网页的 DOM / CSS selector 可能随着 `claude.ai` 页面更新而改变。
-
-所以 Claude 的浏览器自动投递代码已经实现，但在你使用时仍建议实际测试一次。如果网页结构变了，扩展会失败并等待重试，而不是假装发送成功。
-
----
-
-## 远程连接 ChatGPT / Claude 需要什么？
-
-这个仓库只提供 Common AI Memory 本身，不包含作者私人使用的 tunnel、OAuth 密钥或浏览器登录状态。
-
-如果你要让远程网页上的 ChatGPT / Claude 连接你电脑上的 MCP，通常还需要自己准备：
-
-- 安全的 HTTPS 入口 / 网关；
-- 对应平台支持的 MCP 连接方式；
-- 必要的认证配置。
-
-这些属于每个人自己的部署环境，所以没有硬编码进公开版。
-
----
+技术文档目前以英文为主。
 
 ## 测试
 
-Python：
-
 ```powershell
+pip install -e ".[test]"
 python -m pytest -q
+node --test browser-extension/tests/*.test.mjs   # 可选，需要 Node.js
 ```
-
-浏览器扩展测试在：
-
-```text
-browser-extension/tests/
-```
-
-可以使用 Node.js 分别运行其中的测试文件。
-
----
-
-## 更多技术文档
-
-如果你想看更详细的实现：
-
-- [架构说明](docs/architecture.md)
-- [部署说明](docs/deployment.md)
-- [隐私说明](docs/privacy.md)
-- [从私人生产环境提取成公开版本的说明](docs/provenance.md)
-
-这些文档目前主要是英文技术说明。
-
----
 
 ## License / 使用许可
 
 Common AI Memory 采用 **PolyForm Noncommercial License 1.0.0**，属于“源码公开（source-available）”，不是允许商业使用的标准开源许可证。
-
-简单说：
 
 - 可以自己免费使用；
 - 可以为了个人或其他非商业用途修改；
@@ -281,4 +154,4 @@ Common AI Memory 采用 **PolyForm Noncommercial License 1.0.0**，属于“源�
 - 二改后再发布时，必须保留原作者署名：`Original project created by Ilyra.`；
 - 再发布时还必须保留许可条款或官方许可网址。
 
-完整且具有约束力的说明见 [LICENSE](LICENSE)。
+完整且具有约束力的说明见 [LICENSE](LICENSE)。可选的第三方依赖各自保留自己的许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

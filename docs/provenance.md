@@ -1,24 +1,28 @@
-# Production Extraction Map
+# Memory provenance
 
-All source paths below are relative to the private production root. No source Git history was copied.
+`memory_provenance(memory_id, limit=20)` answers "what do we know about where this memory came from and how it has been used?" without returning any memory, Dream, scrap or query text.
 
-| Production file | Public source file | Transformation |
-|---|---|---|
-| memory_store.py | memory_store.py | Verbatim functional implementation; no runtime records copied. |
-| memory_house.py | memory_house.py | Core room/category functions retained; private legacy/category metadata replaced with generic entries. |
-| category_policy.py | category_policy.py | Validator retained; private category allowlist replaced. |
-| memory_audit.py | memory_audit.py | Production audit implementation retained; no audit events copied. |
-| memory_atrium.py | memory_atrium.py | Full UI/API retained; private category descriptions removed and links, host, port, and data root configured. |
-| game_hall.py | game_hall.py | Built-in/Lounge routing and complete production minigame command dispatcher retained; private external transport moved behind ExternalGameAdapter. |
-| minigames.py | minigames.py | Production Battleship, Blackjack, and Holdem implementation retained. |
-| minigames_gomoku_core.py | minigames_gomoku_core.py | Production Gomoku implementation retained. |
-| minigames_viewer.py | minigames_viewer.py | Production spectator UI and redaction retained; host, port, and data root configured. |
-| lounge_room.py | lounge_room.py | Production sequence, read, unread, and message implementation retained; private human identity replaced by configured identities. |
-| lounge_attachments.py | lounge_attachments.py | Production validation, conversion, and MCP image implementation retained; no attachments copied. |
-| lounge_viewer.py | lounge_viewer.py | Full production UI/API retained; private nicknames removed and identity, URLs, ports configured. |
-| lounge_bridge.py | lounge_bridge.py | Production delivery state machine retained; human identity, root, host, port configured. |
-| server.py | server.py | Production MCP tools retained; paths, ports, Bridge URL configured and private-game help removed. |
-| .lounge-bridge/edge-extension files | browser-extension files | Working extension and unit tests retained; private provenance and fixed Bridge address removed; popup configuration added. |
-| generic production test files | tests/*_production.py | Production tests retained; private identity fixtures replaced and current MCP field names corrected. |
+It is read-only, scoped to the calling identity, and does not itself count as an exposure.
 
-This repository is publicly readable but distributed under the PolyForm Noncommercial License 1.0.0 rather than an OSI open-source license. See ../LICENSE for the controlling license notice.
+## What it reports
+
+- **evidence_refs**: each referenced receipt or archive entry and whether it resolves.
+- **Execution receipts**: operations recorded for this memory (owner, operation, outcome, timestamps, changed field names). Receipts whose target was redacted by `forget` stay as evidence identities but no longer reveal the target.
+- **Exposure, retrieval and witness ledgers** for the calling identity: when the memory was shown (recall, recent, wake, Dream material), and whether later evidence was independent of those exposures.
+- **Dream linkage**: whether committed Dreams or Dream scraps used this memory as material.
+- **Audit counts**: how often it was read, by tool.
+
+Each section has a `status`. `unavailable` means that store does not exist yet or cannot be read. It is different from an empty list, which means the store exists and has nothing for this memory. `limit` bounds every list (1 to 50).
+
+## From the command line
+
+```sh
+common-ai-memory-provenance <memory_id> --owner gpt
+common-ai-memory-receipt <receipt_id> --owner gpt
+```
+
+Both are local, read-only administration commands and default to `DATA_DIR`.
+
+## What it is not
+
+Provenance shows that operations happened and how a memory was exposed. It does not prove a memory is true, and it never changes verification, lifecycle or ranking.

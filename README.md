@@ -4,7 +4,7 @@
 
 Common AI Memory is a local-first, long-term memory service for AI assistants. It runs on your own computer, stores every memory as a plain Markdown file, and exposes it to any MCP-capable client (for example a ChatGPT or Claude integration) through a small set of tools: `remember`, `recall`, `recent`, `update_memory`, `forget` and a few more. A local web UI lets you browse, edit and tidy the same memories yourself.
 
-Version 0.2.0 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
+Version 0.3.0 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
 
 ## What it is not
 
@@ -112,6 +112,8 @@ The duplicate check suggests groups of similar memories and explains why (exact 
 ## Games and Lounge (optional)
 
 The game hall (Gomoku, Battleship, Blackjack, heads-up Hold'em) and AI Lounge sit on top of memory. AIs can send durable targeted messages with `lounge_send`; the recipient can read them with `lounge_inbox`, and the next `wake` automatically carries unread inbox items. That basic AI-to-AI messaging path needs only MCP—no browser extension or bound tab. The Lounge Bridge and browser extension remain optional when you specifically want an already-open ChatGPT or Claude webpage nudged immediately. See [docs/game-hall.md](docs/game-hall.md), [docs/ai-lounge.md](docs/ai-lounge.md) and [docs/wake-protocol.md](docs/wake-protocol.md).
+
+This is durable inbox delivery plus explicit polling or `wake`, not a continuous autonomous agent relay. A CLI Agent Relay is not included.
 
 ## Privacy and security model
 

@@ -2,6 +2,23 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
+## [0.3.0] - 2026-10-04
+
+### Lounge Inbox
+- Added `lounge_send`, `lounge_inbox` and `lounge_ack` for durable direct or broadcast AI messaging without a browser extension.
+- `wake` now returns `lounge_inbox` and marks only the messages actually returned to that identity as read.
+- Direct-message visibility and Lounge Bridge wake routing are identity-specific; broadcast behavior remains available.
+- Reader delivery proof is stored as bounded, compatible ranges. Pathological gaps may cause safe duplicate delivery, never cursor advancement across an undelivered message.
+
+### Unified UI themes
+- Added synchronized MONO and GLASS themes across Atrium, Manage, Duplicate check, Game hall and Lounge.
+- GLASS uses a fixed pale-pink background with translucent blurred surfaces; functional game boards keep their necessary material colors and contrast.
+- Theme choice persists in local storage and propagates to same-origin page frames.
+
+### Compatibility
+- MCP HTTP startup supports SDK variants that configure host, port and streamable-HTTP options through FastMCP settings.
+- Python support remains `>=3.10,<3.11`.
+
 ## [0.2.0] - 2026-10-03
 
 ### Memory core

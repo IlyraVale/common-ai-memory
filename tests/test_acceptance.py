@@ -156,6 +156,27 @@ def test_configuration_loading(tmp_path, monkeypatch):
     assert __import__("os").environ["MEMORY_PORT"] == "9123"
 
 
+def test_mcp_main_uses_fastmcp_settings_when_available(monkeypatch):
+    monkeypatch.setenv("AI_MEMORY_AGENT", "gpt")
+    monkeypatch.setenv("CAM_BIND_HOST", "127.0.0.1")
+    monkeypatch.setenv("MEMORY_PORT", "19123")
+    module = importlib.import_module("server")
+    monkeypatch.setattr(module.mcp.settings, "host", "localhost")
+    monkeypatch.setattr(module.mcp.settings, "port", 8000)
+    monkeypatch.setattr(module.mcp.settings, "stateless_http", False)
+    monkeypatch.setattr(module.mcp.settings, "json_response", False)
+    calls = []
+    monkeypatch.setattr(module.mcp, "run", lambda **kwargs: calls.append(kwargs))
+
+    module.main()
+
+    assert calls == [{"transport": "streamable-http"}]
+    assert module.mcp.settings.host == "127.0.0.1"
+    assert module.mcp.settings.port == 19123
+    assert module.mcp.settings.stateless_http is True
+    assert module.mcp.settings.json_response is True
+
+
 def test_http_atrium_and_mcp_tool_surface(tmp_path, monkeypatch):
     monkeypatch.setattr(MemoryStore, "_git_commit", lambda *_: "disabled-in-test")
     MemoryStore(tmp_path, "gpt").remember("HTTP integration", "project/general", "shared")

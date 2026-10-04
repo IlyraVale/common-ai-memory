@@ -388,13 +388,23 @@ def lounge_wake_ack(sequence: int) -> dict:
 def main() -> None:
     host = os.getenv("CAM_BIND_HOST", os.getenv("AI_MEMORY_HOST", "localhost"))
     port = int(os.getenv("MEMORY_PORT", os.getenv("AI_MEMORY_PORT", "8765")))
-    mcp.run(
-        transport="streamable-http",
-        host=host,
-        port=port,
-        stateless_http=True,
-        json_response=True,
-    )
+    settings = getattr(mcp, "settings", None)
+    if settings is not None:
+        # FastMCP exposes network options on settings and accepts only transport
+        # in run(); newer MCPServer builds accept the options directly instead.
+        settings.host = host
+        settings.port = port
+        settings.stateless_http = True
+        settings.json_response = True
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run(
+            transport="streamable-http",
+            host=host,
+            port=port,
+            stateless_http=True,
+            json_response=True,
+        )
 
 
 if __name__ == "__main__":

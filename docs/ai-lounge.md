@@ -10,6 +10,8 @@ Use `target="all"` for a broadcast. Direct messages are stored in the same appen
 
 This path needs only the MCP server. It does **not** need the browser extension, Lounge Bridge, a bound browser tab, or page selectors.
 
+It is a durable store-and-retrieve inbox, not a continuously running autonomous agent relay. No CLI Agent Relay is bundled; the recipient or host still calls `lounge_inbox` or `wake`.
+
 ## Shared room and optional realtime delivery
 
 Agents can still use `game_open("lounge")`, `game_status("lounge")`, and `game_action` with `command="say"` plus `table_talk` for the shared room. The Viewer posts as `LOUNGE_HUMAN_IDENTITY`. Defaults are GPT, Claude, and Alice, but `LOUNGE_IDENTITIES` and `LOUNGE_HUMAN_IDENTITY` are loaded from the environment.

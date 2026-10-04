@@ -15,6 +15,9 @@ class LoungeError(RuntimeError):
     pass
 
 
+MAX_DELIVERED_RANGES = 64
+
+
 class LoungeRoom:
     """Shared append-only chat room for configured human and AI identities.
 
@@ -72,7 +75,7 @@ class LoungeRoom:
         readers = state.setdefault("readers", {})
         for agent in self.identities:
             reader = readers.setdefault(agent, {"last_read_seq": 0, "last_seen_at": None})
-            reader.setdefault("delivered_seqs", [])
+            self._delivered_ranges(reader)
         return state
 
     @staticmethod
@@ -80,28 +83,70 @@ class LoungeRoom:
         return [row for row in rows if row.get("author") != agent_id]
 
     @staticmethod
-    def _record_delivered(reader: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+    def _delivered_ranges(reader: dict[str, Any]) -> list[tuple[int, int]]:
+        """Normalize old/new delivery proof without ever manufacturing proof.
+
+        Only the earliest ranges are retained when pathological direct-message
+        gaps create too many intervals.  Dropping later proof is safe: it can
+        cause a future repeat delivery, but acknowledgement cannot cross the
+        discarded gap and no message is treated as read.
+        """
         current = int(reader.get("last_read_seq") or 0)
-        delivered = {int(seq) for seq in reader.get("delivered_seqs", []) if int(seq) > current}
-        delivered.update(int(row["seq"]) for row in rows if int(row["seq"]) > current)
-        reader["delivered_seqs"] = sorted(delivered)
+        raw: list[tuple[int, int]] = []
+        for item in reader.get("delivered_ranges", []):
+            try:
+                start, end = int(item[0]), int(item[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if end >= start and end > current:
+                raw.append((max(start, current + 1), end))
+        for value in reader.get("delivered_seqs", []):
+            try:
+                seq = int(value)
+            except (TypeError, ValueError):
+                continue
+            if seq > current:
+                raw.append((seq, seq))
+
+        merged: list[list[int]] = []
+        for start, end in sorted(raw):
+            if merged and start <= merged[-1][1] + 1:
+                merged[-1][1] = max(merged[-1][1], end)
+            else:
+                merged.append([start, end])
+        merged = merged[:MAX_DELIVERED_RANGES]
+        reader["delivered_ranges"] = merged
+        reader.pop("delivered_seqs", None)
+        return [(start, end) for start, end in merged]
+
+    @classmethod
+    def _record_delivered(cls, reader: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+        ranges = cls._delivered_ranges(reader)
+        current = int(reader.get("last_read_seq") or 0)
+        ranges.extend((int(row["seq"]), int(row["seq"])) for row in rows if int(row["seq"]) > current)
+        reader["delivered_ranges"] = [[start, end] for start, end in ranges]
+        cls._delivered_ranges(reader)
 
     @staticmethod
-    def _advance_delivered(reader: dict[str, Any], incoming: list[dict[str, Any]], ceiling: int | None = None) -> int:
+    def _was_delivered(ranges: list[tuple[int, int]], sequence: int) -> bool:
+        return any(start <= sequence <= end for start, end in ranges)
+
+    @classmethod
+    def _advance_delivered(cls, reader: dict[str, Any], incoming: list[dict[str, Any]], ceiling: int | None = None) -> int:
         """Advance only across incoming messages that were actually returned to this reader."""
         current = int(reader.get("last_read_seq") or 0)
-        delivered = {int(seq) for seq in reader.get("delivered_seqs", []) if int(seq) > current}
+        delivered = cls._delivered_ranges(reader)
         for row in incoming:
             seq = int(row["seq"])
             if seq <= current:
                 continue
             if ceiling is not None and seq > ceiling:
                 break
-            if seq not in delivered:
+            if not cls._was_delivered(delivered, seq):
                 break
             current = seq
         reader["last_read_seq"] = current
-        reader["delivered_seqs"] = sorted(seq for seq in delivered if seq > current)
+        cls._delivered_ranges(reader)
         return current
 
     def _save_state(self, state: dict[str, Any]) -> None:
@@ -233,9 +278,9 @@ class LoungeRoom:
             current = int(reader.get("last_read_seq") or 0)
             visible = [row for row in rows if self._visible_to(row) and row.get("author") != self.agent_id]
             visible_seqs = {int(row["seq"]) for row in visible}
-            delivered_seqs = {int(seq) for seq in reader.get("delivered_seqs", [])}
+            delivered_ranges = self._delivered_ranges(reader)
             if sequence is None:
-                pending = [seq for seq in delivered_seqs if seq > current]
+                pending = [end for start, end in delivered_ranges if end > current]
                 sequence = max(pending) if pending else current
             try:
                 sequence = int(sequence)
@@ -245,7 +290,7 @@ class LoungeRoom:
                 return {"ok": False, "error": "sequence must be non-negative"}
             if sequence > current and sequence not in visible_seqs:
                 return {"ok": False, "error": "sequence is not a visible lounge message for this identity"}
-            if sequence > current and sequence not in delivered_seqs:
+            if sequence > current and not self._was_delivered(delivered_ranges, sequence):
                 return {"ok": False, "error": "sequence has not been returned to this identity"}
             advanced = self._advance_delivered(reader, visible, ceiling=sequence)
             if advanced < sequence:

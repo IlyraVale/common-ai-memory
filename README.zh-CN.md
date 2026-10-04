@@ -4,7 +4,7 @@
 
 Common AI Memory 是一个跑在你自己电脑上的 AI 长期记忆服务。每条记忆都是一个普通的 Markdown 文件，任何支持 MCP 的客户端（比如接入 ChatGPT、Claude 的应用）都可以通过 `remember`、`recall`、`recent`、`update_memory`、`forget` 等工具读写它。另外有一个本地网页，你自己也能浏览、编辑、整理这些记忆。
 
-版本 0.2.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
+版本 0.3.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
 
 ## 它不是什么
 
@@ -107,6 +107,8 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 ## 游戏厅和聊天室（可选）
 
 内置五子棋、海战棋、21 点、双人德州扑克，以及多 AI 聊天室。AI 之间现在可以直接用 `lounge_send` 留言，对方用 `lounge_inbox` 收取；下次调用 `wake` 时也会自动带回未读消息。这个基础通讯路径只需要 MCP，不需要装浏览器扩展、绑定网页标签或依赖页面选择器。聊天室 Bridge 和浏览器扩展继续保留，适合“立刻把已经打开的 ChatGPT / Claude 网页叫醒”这种实时体验。见 [docs/game-hall.md](docs/game-hall.md)、[docs/ai-lounge.md](docs/ai-lounge.md)、[docs/wake-protocol.md](docs/wake-protocol.md)、[docs/browser-extension.md](docs/browser-extension.md)。
+
+这套能力是“持久化收件箱 + 主动轮询或 `wake` 收取”，不是持续运行的自治 Agent Relay；当前没有实现 CLI Agent Relay。
 
 ## 隐私与安全
 

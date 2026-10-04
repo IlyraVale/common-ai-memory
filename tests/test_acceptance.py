@@ -170,7 +170,8 @@ def test_http_atrium_and_mcp_tool_surface(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_MEMORY_AGENT", "gpt"); monkeypatch.setenv("DATA_DIR", str(tmp_path))
     module = importlib.import_module("server")
     for name in ("remember", "recall", "recent", "update_memory", "forget", "game_list",
-                 "game_open", "game_status", "game_action", "game_close", "lounge_wake_ack"):
+                 "game_open", "game_status", "game_action", "game_close", "lounge_send",
+                 "lounge_inbox", "lounge_ack", "lounge_wake_ack"):
         assert callable(getattr(module, name))
     saved = module.remember("MCP integration", "project/general", "shared")
     assert saved["ok"] and module.recall("MCP integration", "all", 5)[0]["id"] == saved["id"]

@@ -17,7 +17,7 @@
 
 | Tool | Purpose |
 |---|---|
-| `wake(recent_limit=5, include_dream=True, dream_max_chars=…)` | Recent memories for this identity, the current Dream, and at most one pending Dream to write. |
+| `wake(recent_limit=5, include_dream=True, dream_max_chars=…)` | Recent memories, unread Lounge inbox messages (marked read on delivery), the current Dream, and at most one pending Dream to write. |
 | `dream_commit(dream_date, claim_token, content)` | Submit the Dream written from `wake`'s pending materials. |
 | `dream_get(date=None)` | Read the current or a dated Dream. |
 
@@ -26,8 +26,11 @@
 | Tool | Purpose |
 |---|---|
 | `game_list()`, `game_open(game)`, `game_status(game)`, `game_action(game, area, command, table_talk="")`, `game_close(game)` | Built-in games and the lounge (`game="lounge"`, `command="say"`). |
+| `lounge_send(target, text)` | Send a durable direct message to one configured identity; `target="all"` broadcasts. No browser extension required. |
+| `lounge_inbox(limit=20, mark_read=True)` | Read unread messages visible to this identity. |
+| `lounge_ack(sequence=None)` | Advance the inbox read cursor after a non-marking read. |
 | `lounge_attachment_open(attachment_id)` | Open an image attached in the lounge. |
-| `lounge_wake_ack(sequence)` | Confirm a browser-delivered lounge wake after reading the lounge. |
+| `lounge_wake_ack(sequence)` | Confirm a browser-delivered lounge wake after reading the lounge. This is separate from `lounge_ack`. |
 
 Reads are audit-logged with metadata only. Category policy is checked before storage. Game errors are returned as structured results.
 

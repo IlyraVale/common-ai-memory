@@ -104,6 +104,7 @@ html[data-theme="glass"]{
   --cam-radius:18px;
   --cam-control-radius:12px;
   --cam-shadow:0 12px 30px rgba(91,55,72,.08);
+  --cam-highlight:inset 0 1px 0 rgba(255,255,255,.72),inset 1px 0 0 rgba(255,255,255,.34);
   --cam-blur:26px;
 
   --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
@@ -128,9 +129,17 @@ html:not([data-theme]) body,html[data-theme="mono"] body{
 }
 html[data-theme="glass"] body{
   background:var(--cam-bg)!important;color:var(--cam-text)!important;
+  position:relative;isolation:isolate;overflow-x:hidden;
 }
-html:not([data-theme]) body:before,html[data-theme="mono"] body:before,html[data-theme="glass"] body:before{
+html:not([data-theme]) body:before,html[data-theme="mono"] body:before{
   opacity:0!important;background:none!important;
+}
+html[data-theme="glass"] body:before{
+  content:""!important;position:fixed!important;z-index:-1!important;pointer-events:none!important;
+  width:34rem!important;height:34rem!important;left:-11rem!important;top:9vh!important;
+  border-radius:46%!important;background:#f8dde8!important;opacity:.38!important;
+  box-shadow:70vw -12vh 0 3rem #f1cada,36vw 68vh 0 -2rem #f8dde8!important;
+  filter:blur(88px)!important;transform:translateZ(0);will-change:filter;
 }
 
 /* ---------- typography / spacing ---------- */
@@ -180,8 +189,8 @@ html[data-theme="mono"] .card,html[data-theme="mono"] .panel{
 }
 html[data-theme="glass"] .card,html[data-theme="glass"] .panel{
   background:var(--cam-surface)!important;border:1px solid var(--cam-line)!important;
-  border-radius:var(--cam-radius)!important;box-shadow:var(--cam-shadow)!important;
-  backdrop-filter:blur(var(--cam-blur)) saturate(115%)!important;
+  border-radius:var(--cam-radius)!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(var(--cam-blur)) saturate(112%) brightness(1.02)!important;
 }
 html[data-theme="mono"] .hero{
   background:transparent!important;border:0!important;border-top:1px solid #bfbfb7!important;
@@ -190,8 +199,8 @@ html[data-theme="mono"] .hero{
 }
 html[data-theme="glass"] .hero{
   background:var(--cam-surface)!important;border:1px solid var(--cam-line)!important;
-  border-radius:26px!important;box-shadow:var(--cam-shadow)!important;
-  backdrop-filter:blur(var(--cam-blur)) saturate(115%)!important;
+  border-radius:26px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(var(--cam-blur)) saturate(112%) brightness(1.02)!important;
 }
 html[data-theme="mono"] .hero:after{display:none!important}
 html[data-theme="glass"] .hero:after{color:rgba(255,255,255,.28)!important}
@@ -234,7 +243,8 @@ html[data-theme="mono"] .memory{
 html[data-theme="mono"] .memory:first-child{border-top:0!important}
 html[data-theme="glass"] .memory{
   background:rgba(255,255,255,.30)!important;border:1px solid rgba(255,255,255,.62)!important;
-  border-radius:14px!important;backdrop-filter:blur(16px)!important;
+  border-radius:14px!important;backdrop-filter:blur(16px) brightness(1.02)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.58)!important;
 }
 html[data-theme="mono"] .section{border-radius:0!important;border:0!important;border-left:2px solid transparent!important}
 html[data-theme="mono"] .section:hover{background:#ededE8!important}
@@ -256,14 +266,15 @@ html[data-theme="mono"] .game-link{
 }
 html[data-theme="glass"] .game-link{
   background:rgba(255,255,255,.32)!important;border:1px solid rgba(255,255,255,.62)!important;border-radius:14px!important;
+  backdrop-filter:blur(16px)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.54)!important;
 }
 html[data-theme="mono"] table{background:transparent!important}
 html[data-theme="mono"] td,html[data-theme="mono"] th{border-color:#d8d8d1!important}
 html[data-theme="mono"] tr.row:hover,html[data-theme="mono"] tr.row.sel{background:#ecece7!important}
-html[data-theme="glass"] table{background:rgba(255,255,255,.28)!important;border-radius:14px!important;overflow:hidden}
+html[data-theme="glass"] table{background:rgba(255,255,255,.28)!important;border-radius:14px!important;overflow:hidden;backdrop-filter:blur(18px)!important;box-shadow:var(--cam-highlight)!important}
 html[data-theme="glass"] tr.row:hover,html[data-theme="glass"] tr.row.sel{background:var(--cam-active)!important}
 html[data-theme="mono"] .group{background:transparent!important;border-radius:0!important;border-color:#d6d6cf!important}
-html[data-theme="glass"] .group{background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.62)!important;border-radius:14px!important}
+html[data-theme="glass"] .group{background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.62)!important;border-radius:14px!important;backdrop-filter:blur(18px)!important;box-shadow:var(--cam-highlight)!important}
 
 /* ---------- Lounge ---------- */
 html[data-theme="mono"] .topbar,
@@ -273,7 +284,8 @@ html[data-theme="mono"] .composer-wrap{
 html[data-theme="glass"] .topbar,
 html[data-theme="glass"] .composer-wrap{
   background:var(--cam-surface)!important;border-color:rgba(255,255,255,.86)!important;
-  backdrop-filter:blur(24px) saturate(115%)!important;
+  backdrop-filter:blur(24px) saturate(112%) brightness(1.02)!important;
+  box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
 }
 html[data-theme="mono"] .topbar{height:64px!important}
 html[data-theme="mono"] .topbar{color:#11110f!important}
@@ -300,8 +312,8 @@ html[data-theme="mono"] .claude .bubble{background:#f7f7f3!important;border-colo
 html[data-theme="mono"] .alice .bubble{background:#ecece7!important;border-color:#b8b8b0!important}
 html[data-theme="glass"] .bubble{
   color:#462132!important;background:rgba(255,250,253,.58)!important;
-  border-color:rgba(255,255,255,.86)!important;box-shadow:0 12px 30px rgba(91,55,72,.08)!important;
-  backdrop-filter:blur(18px)!important;
+  border-color:rgba(255,255,255,.86)!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(20px) saturate(110%) brightness(1.02)!important;
 }
 html[data-theme="mono"] .gpt .who{color:#11110f!important}
 html[data-theme="mono"] .claude .who{color:#55554e!important}
@@ -314,7 +326,8 @@ html[data-theme="mono"] .composer{
 }
 html[data-theme="glass"] .composer{
   background:rgba(255,250,253,.58)!important;border-color:rgba(255,255,255,.86)!important;
-  border-radius:18px!important;box-shadow:0 12px 30px rgba(91,55,72,.08)!important;backdrop-filter:blur(20px)!important;
+  border-radius:18px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(24px) saturate(112%) brightness(1.02)!important;
 }
 html[data-theme="glass"] .composer textarea{
   background:transparent!important;color:#462132!important
@@ -334,7 +347,8 @@ html[data-theme="mono"] .drawer{
 }
 html[data-theme="glass"] .drawer{
   background:rgba(255,250,253,.58)!important;border-color:rgba(255,255,255,.86)!important;
-  box-shadow:-18px 0 50px rgba(91,55,72,.10)!important;backdrop-filter:blur(28px)!important;
+  box-shadow:-18px 0 50px rgba(91,55,72,.10),var(--cam-highlight)!important;
+  backdrop-filter:blur(28px) saturate(112%) brightness(1.02)!important;
 }
 
 /* ---------- Game Hall ---------- */
@@ -345,7 +359,8 @@ html[data-theme="mono"] .toolbar{
 }
 html[data-theme="glass"] .toolbar{
   background:rgba(255,255,255,.34)!important;border:1px solid rgba(255,255,255,.66)!important;
-  border-radius:16px!important;box-shadow:var(--cam-shadow)!important;backdrop-filter:blur(22px)!important;
+  border-radius:16px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(22px) saturate(112%) brightness(1.02)!important;
 }
 html[data-theme="mono"] .arena,html[data-theme="mono"] .side .panel{background:#fcfcfa!important}
 html[data-theme="mono"] .stat,html[data-theme="mono"] .bj-player{

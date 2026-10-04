@@ -27,7 +27,7 @@ import memory_atrium
 from memory_manager import create_server as create_manager_server
 from memory_search import rebuild_project as rebuild_fts
 from memory_store import MemoryStore
-from memory_ui import create_ui_server
+from memory_ui import THEME_STORAGE_KEY, create_ui_server, inject_theme_css
 from memory_vectors import DEFAULT_MODEL_ID, _BACKEND_CACHE, rebuild_project as rebuild_vec
 
 HERE = Path(__file__).resolve().parent
@@ -117,6 +117,10 @@ class RoutingTests(UiBase):
             self.assertIn(path, text)
         self.assertIn('name="viewport"', text)
         self.assertIn("@media (max-width:600px)", text)
+        self.assertIn('data-theme-choice="mono"', text)
+        self.assertIn('data-theme-choice="glass"', text)
+        self.assertIn(THEME_STORAGE_KEY, text)
+        self.assertIn("contentDocument.documentElement.dataset.theme", text)
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         self.assertEqual(headers["X-Frame-Options"], "DENY")
 
@@ -127,7 +131,7 @@ class RoutingTests(UiBase):
         expected = memory_atrium.HTML
         for placeholder, target in (("__GAME_HALL_URL__", "games"), ("__LOUNGE_URL__", "lounge")):
             expected = expected.replace(f'href="{placeholder}" target="_blank"', f'href="/#{target}" target="_top"')
-        self.assertEqual(page, expected.encode("utf-8"))
+        self.assertEqual(page, inject_theme_css(expected).encode("utf-8"))
         self.assertNotIn(b"__GAME_HALL_URL__", page)
         self.assertNotIn(b"__LOUNGE_URL__", page)
         self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
@@ -164,6 +168,51 @@ class RoutingTests(UiBase):
             self.assertIn("script-src 'nonce-", headers["Content-Security-Policy"])
             self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
             self.assertEqual(headers["Cache-Control"], "no-store")
+
+    def test_theme_layer_reaches_every_integrated_page(self) -> None:
+        for path in ("/atrium", "/manage", "/duplicates", "/games", "/lounge"):
+            with self.subTest(path=path):
+                status, page, _ = self.request("GET", path)
+                self.assertEqual(status, 200)
+                text = page.decode("utf-8")
+                self.assertIn('id="cam-theme-core"', text)
+                self.assertIn('html[data-theme="mono"]', text)
+                self.assertIn('html[data-theme="glass"]', text)
+
+    def test_lounge_theme_overrides_legacy_inline_colors(self) -> None:
+        text = self.request("GET", "/lounge")[1].decode("utf-8")
+        self.assertIn('html[data-theme="mono"] .topbar{color:#11110f!important}', text)
+        self.assertIn('html[data-theme="glass"] .topbar{color:#462132!important}', text)
+        self.assertIn('html[data-theme="glass"] .tagline{color:#806675!important}', text)
+        self.assertIn('html[data-theme="glass"] .composer textarea{', text)
+        self.assertIn('background:transparent!important;color:#462132!important', text)
+        self.assertIn('html[data-theme="glass"] .drawer input', text)
+        self.assertIn('html[data-theme] .sea-card .sea-name', text)
+        self.assertIn('html[data-theme] .dealer-zone .section-title', text)
+        self.assertIn('html[data-theme] .poker-table .gpt', text)
+
+    def test_glass_theme_uses_cool_pink_translucent_tokens_without_gradients(self) -> None:
+        text = self.request("GET", "/atrium")[1].decode("utf-8")
+        theme_css = text.split('<style id="cam-theme-core">', 1)[1].split('</style>', 1)[0]
+        self.assertIn('--cam-bg:#fceef4', text)
+        self.assertIn('--cam-pink:#f8dde8', text)
+        self.assertIn('--cam-active:#f1cada', text)
+        self.assertIn('--cam-surface:rgba(255,250,253,.58)', text)
+        self.assertIn('--cam-surface-2:rgba(248,221,232,.34)', text)
+        self.assertIn('--cam-text:#462132', text)
+        self.assertIn('--cam-muted:#806675', text)
+        self.assertIn('--cam-line:rgba(255,255,255,.86)', text)
+        self.assertIn('--cam-shadow:0 12px 30px rgba(91,55,72,.08)', text)
+        self.assertIn('--cam-highlight:inset 0 1px 0 rgba(255,255,255,.72)', text)
+        self.assertIn('backdrop-filter:blur(var(--cam-blur))', text)
+        self.assertIn('html[data-theme="glass"] body:before', text)
+        self.assertIn('background:#f8dde8!important;opacity:.38!important', text)
+        self.assertIn('filter:blur(88px)!important', text)
+        self.assertIn('html[data-theme="glass"] .content', text)
+        self.assertIn('background:#806675!important;box-shadow:none!important', text)
+        self.assertNotIn('#d9ded8', text)
+        self.assertNotIn('#4d5e54', text)
+        self.assertNotIn('gradient(', theme_css.lower())
 
     def test_token_never_in_pages_or_urls(self) -> None:
         token = self.request("GET", "/api/admin/session", ui=True)[1]["token"]

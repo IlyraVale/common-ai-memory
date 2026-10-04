@@ -46,32 +46,428 @@ GAMES_PREFIX = "/api/games"
 LOUNGE_PREFIX = "/api/lounge"
 PAGES = {"atrium": "/atrium", "manage": "/manage", "duplicates": "/duplicates", "games": "/games", "lounge": "/lounge"}
 
+THEME_STORAGE_KEY = "common-ai-memory-theme"
+
+# Unified visual tokens are injected after each reused page's own CSS.  This keeps
+# the legacy viewers independently runnable while letting the integrated shell
+# present one coherent theme across Atrium, Manager, Games and Lounge.
+THEME_CORE_CSS = r"""
+<style id="cam-theme-core">
+/* ---------- shared visual language ---------- */
+html:not([data-theme]),html[data-theme="mono"]{
+  color-scheme:light;
+  --cam-bg:#f2f2ee;
+  --cam-surface:#fcfcfa;
+  --cam-surface-2:#f7f7f3;
+  --cam-text:#11110f;
+  --cam-muted:#777770;
+  --cam-line:#d6d6cf;
+  --cam-line-strong:#b9b9b1;
+  --cam-accent:#11110f;
+  --cam-accent-text:#ffffff;
+  --cam-danger:#8d3030;
+  --cam-ok:#41624c;
+  --cam-radius:0px;
+  --cam-control-radius:4px;
+  --cam-shadow:none;
+  --cam-blur:0px;
+
+  --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
+  --chat-text:var(--cam-text);--muted:var(--cam-muted);--line:var(--cam-line);
+  --line2:var(--cam-line-strong);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
+  --card:var(--cam-surface);--page-bg:var(--cam-bg);--accent:var(--cam-accent);
+  --accent2:#3f3f39;--warm:#696961;--soft:#5d5d56;--warn:#7f623d;
+  --topbar-bg:#f2f2ee;--topbar-text:var(--cam-text);
+  --input-bg:#ffffff;--input-text:var(--cam-text);--input-placeholder:#92928a;
+  --input-border:var(--cam-line-strong);
+  --gpt:#181816;--claude:#5d5d56;--ok:#41624c;--danger:#8d3030;
+  --gpt-bubble:#ffffff;--claude-bubble:#f8f8f4;--alice-bubble:#eeeeea;
+  --gpt-border-color:#bdbdb5;--claude-border-color:#c9c9c1;--alice-border-color:#a9a9a1;
+  --bubble-border-color:#bdbdb5;--bubble-opacity:100%;--bubble-border-opacity:100%;
+  --bubble-shadow-opacity:0%;--gpt-name:#11110f;--claude-name:#55554e;--alice-name:#74746c;
+}
+html[data-theme="glass"]{
+  color-scheme:light;
+  --cam-bg:#fceef4;
+  --cam-pink:#f8dde8;
+  --cam-active:#f1cada;
+  --cam-surface:rgba(255,250,253,.58);
+  --cam-surface-2:rgba(248,221,232,.34);
+  --cam-text:#462132;
+  --cam-muted:#806675;
+  --cam-line:rgba(255,255,255,.86);
+  --cam-line-strong:rgba(91,55,72,.14);
+  --cam-accent:#462132;
+  --cam-accent-text:#ffffff;
+  --cam-danger:#462132;
+  --cam-ok:#806675;
+  --cam-radius:18px;
+  --cam-control-radius:12px;
+  --cam-shadow:0 12px 30px rgba(91,55,72,.08);
+  --cam-highlight:inset 0 1px 0 rgba(255,255,255,.72),inset 1px 0 0 rgba(255,255,255,.34);
+  --cam-blur:26px;
+
+  --bg:var(--cam-bg);--fg:var(--cam-text);--text:var(--cam-text);
+  --chat-text:var(--cam-text);--muted:var(--cam-muted);--line:var(--cam-line-strong);
+  --line2:rgba(91,55,72,.20);--panel:var(--cam-surface);--panel2:var(--cam-surface-2);
+  --card:var(--cam-surface);--page-bg:var(--cam-bg);--accent:var(--cam-accent);
+  --accent2:#806675;--warm:#806675;--soft:#806675;--warn:#806675;
+  --topbar-bg:var(--cam-surface);--topbar-text:var(--cam-text);
+  --input-bg:rgba(255,255,255,.44);--input-text:var(--cam-text);--input-placeholder:#9a8290;
+  --input-border:rgba(91,55,72,.15);
+  --gpt:#462132;--claude:#806675;--ok:#806675;--danger:#462132;
+  --gpt-bubble:#ffffff;--claude-bubble:#ffffff;--alice-bubble:#ffffff;
+  --gpt-border-color:rgba(255,255,255,.82);--claude-border-color:rgba(255,255,255,.82);
+  --alice-border-color:rgba(255,255,255,.90);--bubble-border-color:rgba(255,255,255,.82);
+  --bubble-opacity:42%;--bubble-border-opacity:84%;--bubble-shadow-opacity:7%;
+  --gpt-name:#462132;--claude-name:#806675;--alice-name:#806675;
+}
+
+html,body{transition:background-color .16s ease,color .16s ease}
+html:not([data-theme]) body,html[data-theme="mono"] body{
+  background:var(--cam-bg)!important;color:var(--cam-text)!important;
+}
+html[data-theme="glass"] body{
+  background:var(--cam-bg)!important;color:var(--cam-text)!important;
+  position:relative;isolation:isolate;overflow-x:hidden;
+}
+html:not([data-theme]) body:before,html[data-theme="mono"] body:before{
+  opacity:0!important;background:none!important;
+}
+html[data-theme="glass"] body:before{
+  content:""!important;position:fixed!important;z-index:-1!important;pointer-events:none!important;
+  width:34rem!important;height:34rem!important;left:-11rem!important;top:9vh!important;
+  border-radius:46%!important;background:#f8dde8!important;opacity:.38!important;
+  box-shadow:70vw -12vh 0 3rem #f1cada,36vw 68vh 0 -2rem #f8dde8!important;
+  filter:blur(88px)!important;transform:translateZ(0);will-change:filter;
+}
+
+/* ---------- typography / spacing ---------- */
+html:not([data-theme]) .shell,html[data-theme="mono"] .shell,
+html[data-theme="glass"] .shell{max-width:1320px}
+html[data-theme="mono"] .brand .eyebrow,
+html[data-theme="mono"] .card-title,
+html[data-theme="mono"] .game-kicker,
+html[data-theme="mono"] .section-title{
+  letter-spacing:.14em!important;text-transform:uppercase!important;color:#6c6c65!important
+}
+html[data-theme="mono"] .brand h1,
+html[data-theme="mono"] .hero h2,
+html[data-theme="mono"] .feed-head h3{
+  color:#11110f!important;font-weight:500!important
+}
+html[data-theme="glass"] .brand h1,
+html[data-theme="glass"] .hero h2,
+html[data-theme="glass"] .feed-head h3{
+  color:#462132!important
+}
+html[data-theme="glass"] .hero p,
+html[data-theme="glass"] .content,
+html[data-theme="glass"] .manual,
+html[data-theme="glass"] .event-body,
+html[data-theme="glass"] .quote,
+html[data-theme="glass"] .game-link span{
+  color:#806675!important
+}
+html[data-theme="glass"] .card-title,
+html[data-theme="glass"] .quote small,
+html[data-theme="glass"] .event-time,
+html[data-theme="glass"] .feed-head span{
+  color:#806675!important
+}
+html[data-theme="glass"] .dot,
+html[data-theme="glass"] .live-pill i{
+  background:#806675!important;box-shadow:none!important
+}
+html[data-theme="glass"] .live-pill{color:#806675!important}
+
+/* ---------- common surfaces ---------- */
+html:not([data-theme]) .card,html:not([data-theme]) .panel,
+html[data-theme="mono"] .card,html[data-theme="mono"] .panel{
+  background:var(--cam-surface)!important;border:1px solid var(--cam-line)!important;
+  border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;
+}
+html[data-theme="glass"] .card,html[data-theme="glass"] .panel{
+  background:var(--cam-surface)!important;border:1px solid var(--cam-line)!important;
+  border-radius:var(--cam-radius)!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(var(--cam-blur)) saturate(112%) brightness(1.02)!important;
+}
+html[data-theme="mono"] .hero{
+  background:transparent!important;border:0!important;border-top:1px solid #bfbfb7!important;
+  border-bottom:1px solid #bfbfb7!important;border-radius:0!important;box-shadow:none!important;
+  padding-left:0!important;padding-right:0!important;
+}
+html[data-theme="glass"] .hero{
+  background:var(--cam-surface)!important;border:1px solid var(--cam-line)!important;
+  border-radius:26px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(var(--cam-blur)) saturate(112%) brightness(1.02)!important;
+}
+html[data-theme="mono"] .hero:after{display:none!important}
+html[data-theme="glass"] .hero:after{color:rgba(255,255,255,.28)!important}
+
+/* ---------- forms / controls ---------- */
+html:not([data-theme]) input,html:not([data-theme]) textarea,html:not([data-theme]) select,
+html[data-theme="mono"] input,html[data-theme="mono"] textarea,html[data-theme="mono"] select{
+  background:#fff!important;color:var(--cam-text)!important;border:1px solid var(--cam-line-strong)!important;
+  border-radius:var(--cam-control-radius)!important;box-shadow:none!important;
+}
+html[data-theme="glass"] input,html[data-theme="glass"] textarea,html[data-theme="glass"] select{
+  background:var(--input-bg)!important;color:var(--cam-text)!important;border:1px solid var(--cam-line)!important;
+  border-radius:var(--cam-control-radius)!important;box-shadow:none!important;
+  backdrop-filter:blur(18px)!important;
+}
+html:not([data-theme]) button,html[data-theme="mono"] button,html[data-theme="glass"] button{
+  box-shadow:none;transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease;
+}
+html[data-theme="mono"] button{border-radius:2px!important}
+html[data-theme="glass"] button{border-radius:11px!important}
+html:not([data-theme]) button.primary,html[data-theme="mono"] button.primary,html[data-theme="glass"] button.primary,
+html:not([data-theme]) .search button,html[data-theme="mono"] .search button,html[data-theme="glass"] .search button{
+  background:var(--cam-accent)!important;color:var(--cam-accent-text)!important;border-color:var(--cam-accent)!important;
+}
+html[data-theme="mono"] button:hover{background:#ecece7}
+html[data-theme="mono"] button.primary:hover,html[data-theme="mono"] .search button:hover{background:#2b2b27!important}
+html[data-theme="glass"] button:hover{background:rgba(255,255,255,.46)}
+html[data-theme="glass"] button.primary:hover,html[data-theme="glass"] .search button:hover{background:#462132!important}
+
+/* ---------- Atrium / Manager ---------- */
+html[data-theme="mono"] .grid{gap:0!important}
+html[data-theme="mono"] .grid>.card,
+html[data-theme="mono"] .side-stack>.card{border-left-width:0!important}
+html[data-theme="mono"] .grid>.card:first-child{border-left-width:1px!important}
+html[data-theme="mono"] .side-stack{gap:0!important}
+html[data-theme="mono"] .memory{
+  background:transparent!important;border:0!important;border-top:1px solid #deded7!important;
+  border-radius:0!important;padding:18px 0!important;
+}
+html[data-theme="mono"] .memory:first-child{border-top:0!important}
+html[data-theme="glass"] .memory{
+  background:rgba(255,255,255,.30)!important;border:1px solid rgba(255,255,255,.62)!important;
+  border-radius:14px!important;backdrop-filter:blur(16px) brightness(1.02)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.58)!important;
+}
+html[data-theme="mono"] .section{border-radius:0!important;border:0!important;border-left:2px solid transparent!important}
+html[data-theme="mono"] .section:hover{background:#ededE8!important}
+html[data-theme="mono"] .section.active{background:#e5e5df!important;border-left-color:#11110f!important}
+html[data-theme="glass"] .section:hover,html[data-theme="glass"] .section.active{
+  background:var(--cam-active)!important;border-color:rgba(255,255,255,.86)!important;
+}
+html[data-theme="mono"] .owner{
+  background:transparent!important;border:1px solid #c8c8c0!important;color:#51514b!important;
+  border-radius:999px!important
+}
+html[data-theme="mono"] .owner.active{background:#11110f!important;color:#fff!important;border-color:#11110f!important}
+html[data-theme="glass"] .owner{
+  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.80)!important;color:#806675!important
+}
+html[data-theme="glass"] .owner.active{background:var(--cam-active)!important;color:#462132!important;border-color:rgba(255,255,255,.86)!important}
+html[data-theme="mono"] .game-link{
+  background:transparent!important;border:1px solid #d0d0c8!important;border-radius:0!important;
+}
+html[data-theme="glass"] .game-link{
+  background:rgba(255,255,255,.32)!important;border:1px solid rgba(255,255,255,.62)!important;border-radius:14px!important;
+  backdrop-filter:blur(16px)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.54)!important;
+}
+html[data-theme="mono"] table{background:transparent!important}
+html[data-theme="mono"] td,html[data-theme="mono"] th{border-color:#d8d8d1!important}
+html[data-theme="mono"] tr.row:hover,html[data-theme="mono"] tr.row.sel{background:#ecece7!important}
+html[data-theme="glass"] table{background:rgba(255,255,255,.28)!important;border-radius:14px!important;overflow:hidden;backdrop-filter:blur(18px)!important;box-shadow:var(--cam-highlight)!important}
+html[data-theme="glass"] tr.row:hover,html[data-theme="glass"] tr.row.sel{background:var(--cam-active)!important}
+html[data-theme="mono"] .group{background:transparent!important;border-radius:0!important;border-color:#d6d6cf!important}
+html[data-theme="glass"] .group{background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.62)!important;border-radius:14px!important;backdrop-filter:blur(18px)!important;box-shadow:var(--cam-highlight)!important}
+
+/* ---------- Lounge ---------- */
+html[data-theme="mono"] .topbar,
+html[data-theme="mono"] .composer-wrap{
+  background:#f2f2ee!important;border-color:#cfcfc7!important;backdrop-filter:none!important;
+}
+html[data-theme="glass"] .topbar,
+html[data-theme="glass"] .composer-wrap{
+  background:var(--cam-surface)!important;border-color:rgba(255,255,255,.86)!important;
+  backdrop-filter:blur(24px) saturate(112%) brightness(1.02)!important;
+  box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+}
+html[data-theme="mono"] .topbar{height:64px!important}
+html[data-theme="mono"] .topbar{color:#11110f!important}
+html[data-theme="glass"] .topbar{color:#462132!important}
+html[data-theme="mono"] .tagline{letter-spacing:.16em!important;color:#777770!important}
+html[data-theme="glass"] .tagline{color:#806675!important}
+html[data-theme="mono"] .person,html[data-theme="mono"] .mode-btn,html[data-theme="mono"] .bridge-state,
+html[data-theme="mono"] .updated{color:#5d5d56!important}
+html[data-theme="glass"] .person,html[data-theme="glass"] .mode-btn,html[data-theme="glass"] .bridge-state,
+html[data-theme="glass"] .updated{color:#806675!important}
+html[data-theme="mono"] .bridge-mode{background:transparent!important;border-color:#c8c8c0!important;border-radius:999px!important}
+html[data-theme="glass"] .bridge-mode{background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.62)!important;border-radius:999px!important}
+html[data-theme="mono"] .mode-btn.active{background:#11110f!important;color:#fff!important}
+html[data-theme="glass"] .mode-btn.active{background:var(--cam-active)!important;color:#462132!important}
+html[data-theme="mono"] .welcome{color:#777770!important}
+html[data-theme="mono"] .welcome:before{content:"—"!important;color:#11110f!important;font-size:14px!important}
+html[data-theme="glass"] .welcome{color:#806675!important}
+html[data-theme="glass"] .welcome:before{color:#806675!important}
+html[data-theme="mono"] .bubble{
+  color:#11110f!important;border-radius:2px!important;box-shadow:none!important;
+}
+html[data-theme="mono"] .gpt .bubble{background:#fff!important;border-color:#bdbdb5!important}
+html[data-theme="mono"] .claude .bubble{background:#f7f7f3!important;border-color:#c9c9c1!important}
+html[data-theme="mono"] .alice .bubble{background:#ecece7!important;border-color:#b8b8b0!important}
+html[data-theme="glass"] .bubble{
+  color:#462132!important;background:rgba(255,250,253,.58)!important;
+  border-color:rgba(255,255,255,.86)!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(20px) saturate(110%) brightness(1.02)!important;
+}
+html[data-theme="mono"] .gpt .who{color:#11110f!important}
+html[data-theme="mono"] .claude .who{color:#55554e!important}
+html[data-theme="mono"] .alice .who{color:#65655e!important}
+html[data-theme="glass"] .gpt .who{color:#462132!important}
+html[data-theme="glass"] .claude .who{color:#806675!important}
+html[data-theme="glass"] .alice .who{color:#806675!important}
+html[data-theme="mono"] .composer{
+  background:#fff!important;border-color:#bdbdb5!important;border-radius:2px!important;box-shadow:none!important;
+}
+html[data-theme="glass"] .composer{
+  background:rgba(255,250,253,.58)!important;border-color:rgba(255,255,255,.86)!important;
+  border-radius:18px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(24px) saturate(112%) brightness(1.02)!important;
+}
+html[data-theme="glass"] .composer textarea{
+  background:transparent!important;color:#462132!important
+}
+html[data-theme="glass"] .drawer input,html[data-theme="glass"] .drawer textarea,
+html[data-theme="glass"] .drawer select{
+  background:rgba(255,255,255,.48)!important;color:#462132!important
+}
+html[data-theme="mono"] .gear,html[data-theme="mono"] .attach-btn,html[data-theme="mono"] .send{
+  background:transparent!important;border-color:#c8c8c0!important;border-radius:2px!important;color:#22221f!important
+}
+html[data-theme="glass"] .gear,html[data-theme="glass"] .attach-btn,html[data-theme="glass"] .send{
+  background:rgba(255,255,255,.30)!important;border-color:rgba(255,255,255,.76)!important;color:#806675!important
+}
+html[data-theme="mono"] .drawer{
+  background:#f6f6f2!important;border-color:#d2d2ca!important;box-shadow:-18px 0 42px rgba(0,0,0,.06)!important;
+}
+html[data-theme="glass"] .drawer{
+  background:rgba(255,250,253,.58)!important;border-color:rgba(255,255,255,.86)!important;
+  box-shadow:-18px 0 50px rgba(91,55,72,.10),var(--cam-highlight)!important;
+  backdrop-filter:blur(28px) saturate(112%) brightness(1.02)!important;
+}
+
+/* ---------- Game Hall ---------- */
+html[data-theme="mono"] .toolbar{
+  background:transparent!important;border:0!important;border-top:1px solid #cfcfc7!important;
+  border-bottom:1px solid #cfcfc7!important;border-radius:0!important;padding-left:0!important;padding-right:0!important;
+  backdrop-filter:none!important;
+}
+html[data-theme="glass"] .toolbar{
+  background:rgba(255,255,255,.34)!important;border:1px solid rgba(255,255,255,.66)!important;
+  border-radius:16px!important;box-shadow:var(--cam-shadow),var(--cam-highlight)!important;
+  backdrop-filter:blur(22px) saturate(112%) brightness(1.02)!important;
+}
+html[data-theme="mono"] .arena,html[data-theme="mono"] .side .panel{background:#fcfcfa!important}
+html[data-theme="mono"] .stat,html[data-theme="mono"] .bj-player{
+  background:transparent!important;border-color:#d5d5ce!important;border-radius:0!important;
+}
+html[data-theme="glass"] .stat,html[data-theme="glass"] .bj-player{
+  background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.58)!important;border-radius:13px!important;
+}
+html[data-theme="mono"] .tag{
+  background:transparent!important;border-color:#c8c8c0!important;color:#55554f!important;border-radius:999px!important;
+}
+html[data-theme="glass"] .tag{
+  background:rgba(255,255,255,.28)!important;border-color:rgba(255,255,255,.62)!important;border-radius:999px!important;
+}
+/* Game pieces remain materially recognizable; theme only owns the surrounding product chrome. */
+html[data-theme] .sea-card .sea-name,
+html[data-theme] .sea-card .gpt,
+html[data-theme] .sea-card .claude{color:#dce8e1!important}
+html[data-theme] .sea-card .ready{color:#9fb5aa!important}
+html[data-theme] .sea-card .ready.yes{color:#8fc7a5!important}
+html[data-theme] .dealer-zone .section-title,
+html[data-theme] .dealer-zone .score,
+html[data-theme] .dealer-zone .score b{color:#dce8e1!important}
+html[data-theme] .poker-table .gpt,
+html[data-theme] .poker-table .claude,
+html[data-theme] .poker-table .muted,
+html[data-theme] .poker-table .stack{color:#c5d5cc!important}
+
+/* ---------- responsive ---------- */
+@media(max-width:720px){
+  html[data-theme="mono"] .grid{gap:10px!important}
+  html[data-theme="mono"] .grid>.card,
+  html[data-theme="mono"] .side-stack>.card{border-left-width:1px!important}
+  html[data-theme="mono"] .side-stack{gap:10px!important}
+}
+</style>
+"""
+
+
+def inject_theme_css(html: str) -> str:
+    """Append the shared theme layer after a reused page's legacy styles."""
+    if 'id="cam-theme-core"' in html:
+        return html
+    if "</head>" not in html:
+        return html
+    return html.replace("</head>", THEME_CORE_CSS + "</head>", 1)
+
 SHELL = r"""<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN" data-theme="mono"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Common AI Memory</title>
 <style>
-:root{--bg:#f6f4ef;--fg:#222;--muted:#777;--line:#ddd;--accent:#7a3b2e}
-@media (prefers-color-scheme:dark){:root{--bg:#1b1a19;--fg:#eee;--muted:#aaa;--line:#3a3836;--accent:#e0a090}}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,"Microsoft YaHei",sans-serif}
-nav{display:flex;align-items:center;gap:4px;height:44px;padding:0 12px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap}
-nav b{margin-right:12px;font-weight:600;letter-spacing:.04em}
-nav a{color:var(--muted);text-decoration:none;padding:10px 12px;border-bottom:2px solid transparent}
-nav a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-iframe{display:block;width:100%;height:calc(100% - 45px);border:0}
-@media (max-width:600px){nav b{display:none}nav a{padding:10px 7px}}
+:root{--bg:#f3f3ef;--fg:#11110f;--muted:#74746e;--line:#d7d7d1;--panel:#fff;--accent:#11110f}
+html[data-theme="glass"]{--bg:#fceef4;--fg:#462132;--muted:#806675;--line:rgba(91,55,72,.14);--panel:rgba(255,250,253,.58);--accent:#462132}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.4 Inter,system-ui,"Microsoft YaHei",sans-serif}
+body{transition:background .16s ease,color .16s ease}
+nav{display:flex;align-items:center;gap:2px;height:52px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;background:var(--panel)}
+html[data-theme="glass"] nav{background:rgba(255,255,255,.42);backdrop-filter:blur(22px)}
+nav b{margin-right:16px;font-size:12px;font-weight:700;letter-spacing:.08em}
+nav a{color:var(--muted);text-decoration:none;padding:17px 11px 15px;border-bottom:1px solid transparent}
+nav a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--fg)}
+nav a:focus-visible,.theme-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.spacer{flex:1}
+.theme-switch{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 72%,transparent)}
+.theme-switch button{border:0;background:transparent;color:var(--muted);font:600 10px/1 system-ui,sans-serif;letter-spacing:.06em;padding:7px 9px;border-radius:999px;cursor:pointer}
+.theme-switch button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+iframe{display:block;width:100%;height:calc(100% - 53px);border:0;background:var(--bg)}
+@media (max-width:600px){nav{padding:0 8px}nav b{display:none}nav a{padding:17px 7px 15px}.theme-switch button{padding:7px}}
 </style></head><body>
-<nav aria-label="Memory UI"><b>Common AI Memory</b>
-<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a></nav>
+<nav aria-label="Memory UI"><b>COMMON AI MEMORY</b>
+<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a>
+<span class="spacer"></span>
+<div class="theme-switch" role="group" aria-label="界面主题">
+<button type="button" data-theme-choice="mono" aria-pressed="true">MONO</button>
+<button type="button" data-theme-choice="glass" aria-pressed="false">GLASS</button>
+</div></nav>
 <iframe id="view" title="Memory UI"></iframe>
 <script nonce="__NONCE__">
 const PAGES = {atrium: "/atrium", manage: "/manage", duplicates: "/duplicates", games: "/games", lounge: "/lounge"};
+const THEME_KEY = "common-ai-memory-theme", THEMES = new Set(["mono","glass"]);
+const frame = document.getElementById("view");
+function savedTheme(){
+  try { const value = localStorage.getItem(THEME_KEY); return THEMES.has(value) ? value : "mono"; }
+  catch (_) { return "mono"; }
+}
+function syncFrameTheme(){
+  const theme = document.documentElement.dataset.theme || "mono";
+  try { if (frame.contentDocument) frame.contentDocument.documentElement.dataset.theme = theme; } catch (_) {}
+}
+function setTheme(theme, persist=true){
+  theme = THEMES.has(theme) ? theme : "mono";
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("[data-theme-choice]").forEach(button =>
+    button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme)));
+  if (persist) { try { localStorage.setItem(THEME_KEY, theme); } catch (_) {} }
+  syncFrameTheme();
+}
+document.querySelectorAll("[data-theme-choice]").forEach(button =>
+  button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
+frame.addEventListener("load", syncFrameTheme);
 function show() {
   const page = PAGES[location.hash.slice(1)] ? location.hash.slice(1) : "atrium";
   document.querySelectorAll("nav a").forEach(a => a.setAttribute("aria-current", a.dataset.page === page ? "page" : "false"));
-  const frame = document.getElementById("view");
   if (frame.getAttribute("src") !== PAGES[page]) frame.setAttribute("src", PAGES[page]);
+  else syncFrameTheme();
 }
+setTheme(savedTheme(), false);
 window.addEventListener("hashchange", show); show();
 </script></body></html>"""
 
@@ -91,7 +487,7 @@ def atrium_page() -> bytes:
     html = memory_atrium.HTML
     for placeholder, page in (("__GAME_HALL_URL__", "games"), ("__LOUNGE_URL__", "lounge")):
         html = html.replace(f'href="{placeholder}" target="_blank"', f'href="/#{page}" target="_top"')
-    return html.encode("utf-8")
+    return inject_theme_css(html).encode("utf-8")
 
 
 def viewer_page(html: str, replacements: tuple[tuple[str, str], ...]) -> tuple[bytes, str]:
@@ -99,6 +495,7 @@ def viewer_page(html: str, replacements: tuple[tuple[str, str], ...]) -> tuple[b
     nonce = secrets.token_urlsafe(16)
     for old, new in replacements:
         html = html.replace(old, new)
+    html = inject_theme_css(html)
     html = html.replace("<script>", f'<script nonce="{nonce}">')
     return html.encode("utf-8"), VIEWER_CSP.format(nonce=nonce)
 
@@ -319,7 +716,8 @@ def make_ui_handler(atrium: Any, api: ManagerApi, port: int, root: Path):
             if path in (PAGES["manage"], PAGES["duplicates"]):
                 page, csp = render_page(ADMIN_PREFIX, initial_tab="dups" if path == PAGES["duplicates"] else "list",
                                         embedded=True)
-                send(self, 200, page, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
+                themed = inject_theme_css(page.decode("utf-8")).encode("utf-8")
+                send(self, 200, themed, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
                 return
             if path in (PAGES["games"], PAGES["lounge"]):
                 module = games if path == PAGES["games"] else lounge

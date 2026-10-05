@@ -156,25 +156,91 @@ def test_configuration_loading(tmp_path, monkeypatch):
     assert __import__("os").environ["MEMORY_PORT"] == "9123"
 
 
-def test_mcp_main_uses_fastmcp_settings_when_available(monkeypatch):
+def test_mcp_settings_capability_detection(monkeypatch):
+    monkeypatch.setenv("AI_MEMORY_AGENT", "gpt")
+    module = importlib.import_module("server")
+    from pydantic import BaseModel
+
+    class NetworkSettings(BaseModel):
+        host: str = "localhost"
+        port: int = 8000
+        stateless_http: bool = False
+        json_response: bool = False
+
+    class PlainSettings(BaseModel):
+        debug: bool = False
+
+    assert module._settings_take_network_options(NetworkSettings()) is True
+    assert module._settings_take_network_options(PlainSettings()) is False
+    assert module._settings_take_network_options(None) is False
+
+
+def test_mcp_main_passes_network_options_for_installed_sdk(monkeypatch):
     monkeypatch.setenv("AI_MEMORY_AGENT", "gpt")
     monkeypatch.setenv("CAM_BIND_HOST", "127.0.0.1")
     monkeypatch.setenv("MEMORY_PORT", "19123")
     module = importlib.import_module("server")
-    monkeypatch.setattr(module.mcp.settings, "host", "localhost")
-    monkeypatch.setattr(module.mcp.settings, "port", 8000)
-    monkeypatch.setattr(module.mcp.settings, "stateless_http", False)
-    monkeypatch.setattr(module.mcp.settings, "json_response", False)
     calls = []
     monkeypatch.setattr(module.mcp, "run", lambda **kwargs: calls.append(kwargs))
 
     module.main()
 
-    assert calls == [{"transport": "streamable-http"}]
-    assert module.mcp.settings.host == "127.0.0.1"
-    assert module.mcp.settings.port == 19123
-    assert module.mcp.settings.stateless_http is True
-    assert module.mcp.settings.json_response is True
+    settings = getattr(module.mcp, "settings", None)
+    fields = getattr(type(settings), "model_fields", {}) if settings is not None else {}
+    if all(name in fields for name in ("host", "port", "stateless_http", "json_response")):
+        assert calls == [{"transport": "streamable-http"}]
+        assert (settings.host, settings.port, settings.stateless_http, settings.json_response) == (
+            "127.0.0.1", 19123, True, True)
+    else:
+        assert calls == [{"transport": "streamable-http", "host": "127.0.0.1", "port": 19123,
+                          "stateless_http": True, "json_response": True}]
+
+
+def test_mcp_main_starts_and_serves_lounge_surface(tmp_path):
+    import os
+    import socket
+    import subprocess
+    import sys
+
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+
+    import server as server_module
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    env = {**os.environ, "AI_MEMORY_AGENT": "gpt", "DATA_DIR": str(tmp_path / "runtime"),
+           "CAM_BIND_HOST": "127.0.0.1", "MEMORY_PORT": str(port),
+           "PYTHONPATH": str(Path(server_module.__file__).resolve().parent)}
+    process = subprocess.Popen([sys.executable, "-c", "import server; server.main()"], cwd=tmp_path, env=env,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    try:
+        deadline = time.monotonic() + 60
+        while True:
+            assert process.poll() is None, process.stderr.read().decode("utf-8", "replace")[-2000:]
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1):
+                    break
+            except OSError:
+                assert time.monotonic() < deadline, "MCP server did not accept connections"
+                time.sleep(0.25)
+
+        async def list_tools():
+            async with streamable_http_client(f"http://127.0.0.1:{port}/mcp") as streams:
+                async with ClientSession(streams[0], streams[1]) as session:
+                    await session.initialize()
+                    return {tool.name for tool in (await session.list_tools()).tools}
+
+        tools = asyncio.run(list_tools())
+        assert {"lounge_send", "lounge_inbox", "lounge_ack", "wake", "remember", "recall"} <= tools
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+        process.stderr.close()
 
 
 def test_http_atrium_and_mcp_tool_surface(tmp_path, monkeypatch):

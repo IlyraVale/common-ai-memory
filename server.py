@@ -385,13 +385,29 @@ def lounge_wake_ack(sequence: int) -> dict:
         return {"ok": False, "sequence": sequence, "target": AGENT_ID, "error": str(exc)[-300:]}
 
 
+_NETWORK_SETTINGS = ("host", "port", "stateless_http", "json_response")
+
+
+def _settings_take_network_options(settings: object) -> bool:
+    """True only when the SDK's settings model really declares the network options.
+
+    mcp 2.x MCPServer also has a settings object, but without host/port; there the
+    options must be passed to run() instead.
+    """
+    if settings is None:
+        return False
+    fields = getattr(type(settings), "model_fields", None)
+    if isinstance(fields, dict):
+        return all(name in fields for name in _NETWORK_SETTINGS)
+    return all(hasattr(settings, name) for name in _NETWORK_SETTINGS)
+
+
 def main() -> None:
     host = os.getenv("CAM_BIND_HOST", os.getenv("AI_MEMORY_HOST", "localhost"))
     port = int(os.getenv("MEMORY_PORT", os.getenv("AI_MEMORY_PORT", "8765")))
     settings = getattr(mcp, "settings", None)
-    if settings is not None:
-        # FastMCP exposes network options on settings and accepts only transport
-        # in run(); newer MCPServer builds accept the options directly instead.
+    if _settings_take_network_options(settings):
+        # Older FastMCP builds read network options from settings and accept only transport in run().
         settings.host = host
         settings.port = port
         settings.stateless_http = True

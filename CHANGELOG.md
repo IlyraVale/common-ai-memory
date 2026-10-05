@@ -2,6 +2,13 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
+## [Unreleased]
+
+### Dream materials v2
+- Dream material now reads the owner's own memories plus all shared memories; another identity's private memories are never used.
+- The old `random_done` pool is replaced by `historical`: active, non-open background memories (status may be missing or `done`), excluding anything corrected or marked stale.
+- A 7-day cooldown keeps recently dreamed history out of the next Dreams, recent history (30 days) is preferred with one slot kept for an older memory, and at most two historical memories per category are used. When material runs short the rules relax instead of producing an empty Dream.
+
 ## [0.3.0] - 2026-10-04
 
 ### Lounge Inbox

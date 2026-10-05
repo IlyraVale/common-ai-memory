@@ -222,7 +222,7 @@ class DreamTests(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         self.feedback_path = self.root / "state" / "memory-feedback.sqlite3"
         self.feedback = MemoryFeedbackStore(self.root, "gpt", db_path=self.feedback_path)
-        self.config = DreamConfig(new_limit=4, retrieval_limit=4, random_done_limit=2, total_chars=5000)
+        self.config = DreamConfig(new_limit=4, retrieval_limit=4, historical_limit=2, total_chars=5000)
         self.preparer = DreamPreparer(self.root, feedback_db=self.feedback_path, config=self.config)
 
     def tearDown(self):
@@ -260,8 +260,7 @@ class DreamTests(unittest.TestCase):
         self.assertEqual(counts["m"], 3)
         self.assertEqual(normalize_query_fingerprint(" Hello　WORLD "), normalize_query_fingerprint("hello world"))
 
-    @unittest.skip("public MemoryStore fixture uses room-frontmatter rather than the production helper fixture")
-    def test_random_done_reproducible_and_filtered(self):
+    def test_historical_reproducible_and_filtered(self):
         for memory_id, status in (("a", "done"), ("b", "done"), ("c", "open"), ("d", "done")):
             _record(self.root, memory_id, "gpt", "2026-09-20T01:00:00Z", status=status)
         _event(self.feedback, "r1", "gpt", "q", ["d"], "2026-09-29T01:00:00Z")
@@ -271,10 +270,11 @@ class DreamTests(unittest.TestCase):
         self.assertEqual(first["source_memory_ids"], second["source_memory_ids"])
         rows = {item["id"]: item for item in first["materials"]}
         self.assertEqual(
-            {memory_id for memory_id, item in rows.items() if "random_done" in item["reasons"]},
+            {memory_id for memory_id, item in rows.items() if "historical" in item["reasons"]},
             {"a", "b"},
         )
-        self.assertNotIn("random_done", rows["d"]["reasons"])
+        self.assertNotIn("historical", rows["d"]["reasons"])
+        self.assertNotIn("c", rows)
 
     def test_owner_isolation_and_timezone_boundary(self):
         _record(self.root, "g1", "gpt", "2026-09-28T16:30:00Z")

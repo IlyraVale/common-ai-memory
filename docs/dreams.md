@@ -27,6 +27,30 @@ Any CLI problem (executable missing, launch failure, auth expired, quota exhaust
 
 The `api` mode currently provides the configuration and adapter contract only. This distribution does not include a built-in network provider. Configuring `api` without registering an adapter fails with an explicit error; credentials are referenced by environment-variable name and are never stored in Dream packets or logs.
 
+## Materials
+
+Preparing a Dream selects material; it does not think in the background and it never changes memories. For an owner, the selection reads only:
+
+- the owner's own memories (agent or shared scope);
+- every shared memory, whoever wrote it.
+
+It never reads another identity's agent-scope (private) memories, the human house manuals, or anything that is not an ordinary memory record. Stale and superseded memories are never used.
+
+Material is chosen in this order:
+
+1. **new**: memories created on the Dream date (up to `new_limit`, default 6). Always included, even if they appeared in a recent Dream.
+2. **retrieved**: memories this owner actually retrieved that day (up to `retrieval_limit`, default 6), ranked by effective retrievals and feedback. Never excluded for having been dreamed recently; among equally ranked candidates, ones not dreamed recently and from categories not yet present come first.
+3. **historical**: background from older memories (up to `historical_limit`, default 6). A historical memory must be `active`, not an open item (`status` missing or `done`; historical is not the same as "done"), created before the Dream date, and never marked corrected or stale in retrieval feedback.
+
+Historical selection, deterministic per owner and date:
+
+- **Cooldown**: memories used in this owner's Dreams during the previous `dream_cooldown_days` (default 7) wait their turn.
+- **Recency**: memories from the last `recent_history_days` (default 30) come first; `historical_older_slots` (default 1) keeps room for an older memory so distant associations still occur.
+- **Diversity**: at most `historical_category_cap` (default 2) memories per category, counting what new and retrieved already contributed.
+- **Never starve**: if there is not enough material, the category cap is relaxed first, then memories in cooldown are reused, longest since last dreamed and least often used first. Repetition is preferred over an empty or failed Dream.
+
+A memory selected for several reasons occupies one slot and lists all reasons. `source_memory_ids` records exactly the memories that entered the packet. The total material stays within `total_chars` (6000). Dreams that already exist are never regenerated; Dream files without readable source ids simply do not contribute to the cooldown.
+
 ## Ephemeral scraps
 
 Dream preparation can include at most one short-lived scrap. Scraps are derived, ephemeral, non-authoritative fragments kept outside ordinary memory, with a default TTL of 72 hours (configurable from 24 to 168 hours). They never appear in normal recall, wake memory, archive, or evolve, and they do not count as independent evidence. Explicitly deleted, forgotten, corrected, stale, superseded, or secret-like material is rejected rather than retained as a scrap.

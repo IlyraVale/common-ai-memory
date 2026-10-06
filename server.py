@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -24,6 +25,7 @@ from memory_store import MemoryStore, PASSIVE_CONTEXT_BUDGET, PASSIVE_ITEM_BUDGE
 from dream_scraps import DreamScrapStore
 from memory_witness import MemoryWitnessStore
 from memory_provenance import query_provenance
+from handoffs import HandoffError, HandoffStore
 from dreams import (
     DEFAULT_CONFIG as DREAM_CONFIG,
     attach_dream_to_wake,
@@ -50,6 +52,7 @@ category_policy = CategoryPolicy(PROJECT_ROOT)
 game_hall = GameHall(PROJECT_ROOT, AGENT_ID)
 attachment_store = LoungeAttachmentStore(PROJECT_ROOT)
 witness_store = MemoryWitnessStore(PROJECT_ROOT)
+handoff_store = HandoffStore(PROJECT_ROOT, AGENT_ID)
 OWNER_CONFIG = load_owner_config(PROJECT_ROOT, AGENT_ID)
 WITNESS_ENABLED = OWNER_CONFIG.independent_witness_enabled
 PASSIVE_RECALL_ENABLED = OWNER_CONFIG.passive_recall_enabled
@@ -188,6 +191,12 @@ def wake(recent_limit: int = 5, include_dream: bool = True, dream_max_chars: int
     """Return recent memory, unread Lounge inbox, Dream context, and at most one pending Dream packet."""
     packet = {"recent": store.recent(limit=max(0, min(int(recent_limit), 30)), owner=AGENT_ID)}
     packet["lounge_inbox"] = game_hall.lounge_inbox(limit=20, mark_read=True)
+    try:
+        active_handoffs = handoff_store.wake_index()
+    except (sqlite3.Error, OSError):
+        active_handoffs = []
+    if active_handoffs:  # compact index only; absent entirely when there is nothing to continue
+        packet["active_handoffs"] = active_handoffs
     exposure_episode_id = f"wake:{secrets.token_urlsafe(18)}"
     if WITNESS_ENABLED:
         witness_store.expose(
@@ -285,6 +294,40 @@ async def game_status(game: str) -> dict:
             "error_type": type(exc).__name__,
             "error": _format_game_exception(exc),
         }
+
+
+@mcp.tool()
+def handoff_set(topic: str, summary: str = "", next_steps: str = "", temporary_context: str = "",
+                handoff_id: str | None = None, ttl_hours: int | None = None) -> dict:
+    """Save a short-lived handoff capsule so another window can continue this work.
+
+    Not a memory: it expires (default 48 h), is never recalled or dreamed about, and several can be
+    active at once. Pass handoff_id to update one of your own capsules; otherwise a new one is created.
+    Limits: topic 120, summary 600, next_steps 400, temporary_context 600 characters.
+    """
+    try:
+        return handoff_store.set(topic=topic, summary=summary, next_steps=next_steps,
+                                 temporary_context=temporary_context, handoff_id=handoff_id, ttl_hours=ttl_hours)
+    except HandoffError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def handoff_list(owner: str | None = None, include_inactive: bool = False, limit: int = 20) -> dict:
+    """Compact index of handoff capsules (yours by default; owner='all' for everyone). No bodies."""
+    return handoff_store.list(owner=owner, include_inactive=include_inactive, limit=limit)
+
+
+@mcp.tool()
+def handoff_get(handoff_id: str) -> dict:
+    """Full handoff capsule. Call only when you are actually continuing that work."""
+    return handoff_store.get(handoff_id)
+
+
+@mcp.tool()
+def handoff_close(handoff_id: str) -> dict:
+    """Close one of your own handoff capsules once the work no longer needs it."""
+    return handoff_store.close(handoff_id)
 
 
 @mcp.tool()

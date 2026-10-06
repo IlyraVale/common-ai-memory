@@ -2,6 +2,15 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
+## [Unreleased]
+
+### Continuity
+- Handoff capsules (`handoff_set` / `list` / `get` / `close`): up to 5 active per identity, 48 h default TTL (max 168 h), bounded fields. Not memory: never in recall, search indexes or Dream materials. `wake` adds at most three compact hints and nothing when there are none.
+- `changes`: a deterministic, read-only event timeline built from existing receipts, Dream commits, handoffs, snapshots and relay runs. No model calls, no new index.
+- Snapshots (`snapshot_create` / `list` / `verify` / `restore_plan`): managed data only, SQLite via the online backup API under the write lock, SHA256 manifest. Restore is CLI-only and two-step, with a one-time plan-bound token, a mandatory safety snapshot and rollback on failure.
+- Agent Relay (`common-ai-memory-relay`), off by default: `lounge_send(..., relay_requested=True)` may get one reply-only, single-hop automatic answer from a target that enabled Relay. Batched, cooldown and hourly/daily limits, bounded input/output, idempotent replies, failures never move inbox cursors.
+- UI: read-only 动态 (timeline), 断点 (handoffs) and 快照 (snapshots) pages and a Relay status panel.
+
 ## [0.3.0] - 2026-10-04
 
 ### Lounge Inbox

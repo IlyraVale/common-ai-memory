@@ -66,6 +66,20 @@ Optional. Without it, every owner uses the defaults below. Copy `owner-config.ex
 | `independent_witness_enabled` | `true` | Exposure ledger that keeps recalled memories from confirming themselves |
 | `passive_recall_enabled` | `true` | Allow `recall(passive=true)` for this owner |
 
+### Agent Relay keys (optional, off by default)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `relay_enabled` | `false` | Allow one automatic reply to direct messages sent to this identity with `relay_requested=true` |
+| `relay_mode` | `explicit_only` | The only mode; any other value keeps Relay off |
+| `relay_batch_window_seconds`, `relay_cooldown_seconds` | `60`, `300` | Batch requests from one sender; minimum gap between calls |
+| `relay_max_per_hour`, `relay_max_per_day` | `3`, `12` | Call budget (rolling windows) |
+| `relay_max_input_chars`, `relay_max_output_chars` | `6000`, `2000` | Prompt and reply bounds |
+| `relay_max_age_hours` | `24` | Older requests are ignored |
+| `relay_cli_profile`, `relay_cli_executable`, `relay_timeout_seconds` | Dream CLI settings, `180` | Runner for the reply |
+
+Each relayed reply spends the identity's CLI quota. See [continuity.md](continuity.md#agent-relay).
+
 ### Dream modes
 
 - **`on_wake` (default, safe):** nothing to install. The chat model calls `wake`, writes the Dream from the provided materials, and submits it with `dream_commit`.

@@ -105,6 +105,17 @@ def _sqlite_summary(path: Path) -> dict[str, Any]:
     return {"integrity": integrity, "tables": counts}
 
 
+def _sqlite_content_sha256(path: Path) -> str:
+    """Digest of a database's logical content. File bytes are not comparable: a WAL database and its
+    DELETE-journal backup differ in the header even when every row is the same."""
+    digest = hashlib.sha256()
+    with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=10)) as db:
+        for line in db.iterdump():
+            digest.update(line.encode("utf-8"))
+            digest.update(b"\n")
+    return digest.hexdigest()
+
+
 def _backup_sqlite(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True, timeout=30)) as src, \
@@ -159,8 +170,11 @@ class SnapshotManager:
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, target)
-                    files.append({"path": rel, "size": target.stat().st_size, "sha256": _sha256(target),
-                                  "kind": "sqlite" if _is_sqlite(source) else "file"})
+                    entry = {"path": rel, "size": target.stat().st_size, "sha256": _sha256(target),
+                             "kind": "sqlite" if _is_sqlite(source) else "file"}
+                    if entry["kind"] == "sqlite":
+                        entry["content_sha256"] = _sqlite_content_sha256(target)
+                    files.append(entry)
                 created_at = _iso(self.clock())
             manifest = {
                 "schema_version": SCHEMA_VERSION, "snapshot_id": snapshot_id, "created_at": created_at,
@@ -245,9 +259,17 @@ class SnapshotManager:
         remove = sorted(set(current) - set(snap))
         overwrite, unchanged = [], 0
         current_sha = {}
+        data = self.base / snapshot_id / "data"
         for rel in sorted(set(snap) & set(current)):
-            current_sha[rel] = _sha256(current[rel])
-            if current_sha[rel] == snap[rel]["sha256"]:
+            if snap[rel].get("kind") == "sqlite":  # compare rows, not bytes
+                try:
+                    current_sha[rel] = _sqlite_content_sha256(current[rel])
+                    wanted = snap[rel].get("content_sha256") or _sqlite_content_sha256(data / rel)
+                except sqlite3.Error:
+                    current_sha[rel], wanted = _sha256(current[rel]), None
+            else:
+                current_sha[rel], wanted = _sha256(current[rel]), snap[rel]["sha256"]
+            if current_sha[rel] == wanted:
                 unchanged += 1
             else:
                 overwrite.append(rel)

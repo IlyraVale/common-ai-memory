@@ -122,6 +122,18 @@ class SnapshotTests(unittest.TestCase):
         self.assertTrue(any(d["path"] == "state/execution-receipts.sqlite3" for d in plan["sqlite"]))
         self.assertEqual(plan, self.manager.restore_plan(snap))
 
+    def test_plan_compares_sqlite_rows_not_bytes(self) -> None:
+        from handoffs import HandoffStore
+
+        HandoffStore(self.root, "gpt").set(topic="t", summary="s")  # a WAL database
+        snap = self.manager.create()["snapshot_id"]
+        plan = self.manager.restore_plan(snap)
+        self.assertEqual((plan["add"], plan["overwrite"], plan["remove"]), ([], [], []))
+        HandoffStore(self.root, "gpt").list()  # reading must not count as a change
+        self.assertEqual(self.manager.restore_plan(snap)["overwrite"], [])
+        HandoffStore(self.root, "gpt").set(topic="t2", summary="s")
+        self.assertEqual(self.manager.restore_plan(snap)["overwrite"], ["state/handoffs.sqlite3"])
+
     def test_full_restore_round_trip_with_safety_snapshot(self) -> None:
         snap = self.manager.create()["snapshot_id"]
         original = self.memory_text()

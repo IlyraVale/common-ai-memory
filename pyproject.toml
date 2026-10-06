@@ -42,7 +42,7 @@ common-ai-memory-search = "memory_search:main"
 common-ai-memory-vectors = "memory_vectors:main"
 
 [tool.setuptools]
-py-modules = ["archive_store", "category_policy", "config", "dream_cli_runner", "dream_nightly", "dream_scraps", "dreams", "execution_receipts", "external_games", "game_hall", "handoffs", "launcher", "lounge_attachments", "lounge_bridge", "lounge_room", "lounge_viewer", "memory_atrium", "memory_audit", "memory_doctor", "memory_duplicates", "memory_feedback", "memory_house", "memory_manager", "memory_provenance", "memory_search", "memory_services", "memory_store", "memory_ui", "memory_vectors", "memory_witness", "minigames", "minigames_gomoku_core", "minigames_viewer", "server"]
+py-modules = ["archive_store", "category_policy", "config", "dream_cli_runner", "dream_nightly", "dream_scraps", "dreams", "execution_receipts", "external_games", "game_hall", "handoffs", "launcher", "lounge_attachments", "lounge_bridge", "lounge_room", "lounge_viewer", "memory_atrium", "memory_audit", "memory_doctor", "memory_duplicates", "memory_feedback", "memory_house", "memory_manager", "memory_provenance", "memory_search", "memory_services", "memory_store", "memory_ui", "memory_vectors", "memory_witness", "minigames", "minigames_gomoku_core", "minigames_viewer", "server", "timeline"]
 
 [tool.setuptools.dynamic]
 version = {attr = "config.__version__"}

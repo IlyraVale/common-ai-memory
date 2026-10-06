@@ -26,6 +26,7 @@ from dream_scraps import DreamScrapStore
 from memory_witness import MemoryWitnessStore
 from memory_provenance import query_provenance
 from handoffs import HandoffError, HandoffStore
+from timeline import changes as timeline_changes
 from dreams import (
     DEFAULT_CONFIG as DREAM_CONFIG,
     attach_dream_to_wake,
@@ -294,6 +295,18 @@ async def game_status(game: str) -> dict:
             "error_type": type(exc).__name__,
             "error": _format_game_exception(exc),
         }
+
+
+@mcp.tool()
+def changes(since: str | None = None, until: str | None = None, kinds: list[str] | None = None,
+            owner: str | None = None, limit: int = 50) -> dict:
+    """What changed: deterministic system events (memory created/updated/status/superseded/forgotten,
+    Dream commits, handoffs, snapshots, relay runs) between since and until (dates or ISO times).
+
+    Read-only, no model involved, no memory text. kinds filters by exact kind or prefix such as
+    "memory". limit is capped at 100.
+    """
+    return timeline_changes(PROJECT_ROOT, since=since, until=until, kinds=kinds, owner=owner, limit=limit)
 
 
 @mcp.tool()

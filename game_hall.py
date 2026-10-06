@@ -213,8 +213,8 @@ class GameHall:
             return await adapter.action(self.agent_id, area, command)
         return {"ok": False, "error": f"unknown or unconfigured game: {game}"}
 
-    def lounge_send(self, target: str, text: str) -> dict[str, Any]:
-        return self._lounge.send(target=target, text=text)
+    def lounge_send(self, target: str, text: str, relay_requested: bool = False) -> dict[str, Any]:
+        return self._lounge.send(target=target, text=text, relay_requested=relay_requested)
 
     def lounge_inbox(self, limit: int = 20, mark_read: bool = False) -> dict[str, Any]:
         return self._lounge.inbox(limit=limit, mark_read=mark_read)

@@ -21,7 +21,7 @@ MAX_LIMIT = 100
 KINDS = (
     "memory.created", "memory.updated", "memory.status_changed", "memory.superseded", "memory.forgotten",
     "dream.committed", "handoff.created", "handoff.updated", "handoff.closed", "snapshot.created",
-    "relay.replied", "relay.blocked", "relay.failed",
+    "relay.delivered", "relay.replied", "relay.blocked", "relay.failed",
 )
 
 
@@ -175,6 +175,21 @@ def snapshot_change_events(root: Path, since: str | None, until: str | None) -> 
         for s in snapshot_events(root) if _in_window(s["created_at"], since, until)]
 
 
+def relay_change_events(root: Path, since: str | None, until: str | None) -> list[ChangeEvent]:
+    """Relay bookkeeping only: who asked whom, and what happened. Message text is never included."""
+    from relay import relay_events
+
+    verbs = {"delivered": "queued a relay request from", "replied": "auto-replied to",
+             "blocked": "blocked (budget) a relay request from", "failed": "failed to relay a reply to"}
+    return [ChangeEvent(
+        event_id=f"relay:{r['event_id']}", timestamp=_norm_time(r["at"]), kind=f"relay.{r['kind']}",
+        actor=r["target"], owner=r["target"], target_id=r["batch_key"], category=None,
+        summary=f"{r['target']} {verbs.get(r['kind'], r['kind'])} {r['sender']}",
+        source_ref=f"relay:{r['event_id']}",
+        metadata={"sender": r["sender"], "message_seqs": json.loads(r["message_seqs"] or "[]"), "detail": r["detail"]})
+        for r in relay_events(root) if _in_window(r["at"], since, until)]
+
+
 EXTRA_ADAPTERS: list[Callable[[Path, str | None, str | None], Iterable[ChangeEvent]]] = []
 
 
@@ -196,6 +211,7 @@ def changes(project_root: str | Path, *, since: str | None = None, until: str | 
     events += dream_events(root, since_n, until_n)
     events += handoff_change_events(root, since_n, until_n)
     events += snapshot_change_events(root, since_n, until_n)
+    events += relay_change_events(root, since_n, until_n)
     for adapter in EXTRA_ADAPTERS:
         events += list(adapter(root, since_n, until_n))
 

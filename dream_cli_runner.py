@@ -160,18 +160,25 @@ class PreferredCliRunner:
         return resolve_executable(self.executable) is not None
 
     def generate(self, package: dict[str, Any], instruction: str) -> str:
-        binary = resolve_executable(self.executable)
-        if binary is None:
-            raise DreamCliFailure("executable_missing")
         prompt = instruction + "\n\nINPUT PACKAGE (JSON):\n" + json.dumps(
             prompt_package(package), ensure_ascii=False, sort_keys=True
         )
+        return self.run_prompt(prompt)[0]
+
+    def run_prompt(self, prompt: str) -> tuple[str, dict[str, Any] | None]:
+        """One isolated, tool-less generation; returns the text and the usage the CLI reported, if any."""
+        binary = resolve_executable(self.executable)
+        if binary is None:
+            raise DreamCliFailure("executable_missing")
         with tempfile.TemporaryDirectory(prefix="dream-cli-") as workdir:
             if self.profile == "claude_code":
-                return self._claude(binary, prompt, workdir)
-            return self._codex(binary, prompt, workdir)
+                return self._claude_with_usage(binary, prompt, workdir)
+            return self._codex(binary, prompt, workdir), None  # codex exec -o reports no usage
 
     def _claude(self, binary: str, prompt: str, workdir: str) -> str:
+        return self._claude_with_usage(binary, prompt, workdir)[0]
+
+    def _claude_with_usage(self, binary: str, prompt: str, workdir: str) -> tuple[str, dict[str, Any] | None]:
         # No tools, no MCP servers, no user/project settings or instruction files.
         argv = [*self.launcher, binary, "-p", "--output-format", "json", "--tools", "", "--strict-mcp-config",
                 "--setting-sources", "", "--no-session-persistence"]
@@ -190,7 +197,8 @@ class PreferredCliRunner:
             raise DreamCliFailure(_classify_failure(str(result or ""), str(data.get("api_error_status") or "")))
         if not isinstance(result, str):
             raise DreamCliFailure("malformed_output")
-        return _clean(result, self.max_output_chars)
+        usage = data.get("usage")
+        return _clean(result, self.max_output_chars), usage if isinstance(usage, dict) else None
 
     def _codex(self, binary: str, prompt: str, workdir: str) -> str:
         out_file = Path(workdir) / "last-message.txt"

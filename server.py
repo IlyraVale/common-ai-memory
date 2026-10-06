@@ -380,9 +380,13 @@ def handoff_close(handoff_id: str) -> dict:
 
 
 @mcp.tool()
-def lounge_send(target: str, text: str) -> dict:
-    """Send a durable Lounge message to one configured identity, or use target='all' to broadcast."""
-    return game_hall.lounge_send(target=target, text=text)
+def lounge_send(target: str, text: str, relay_requested: bool = False) -> dict:
+    """Send a durable Lounge message to one configured identity, or use target='all' to broadcast.
+
+    relay_requested=True (direct messages only) asks for ONE automatic reply when the target has Agent
+    Relay enabled; it costs the target's CLI quota. Leave it False for ordinary messages.
+    """
+    return game_hall.lounge_send(target=target, text=text, relay_requested=bool(relay_requested))
 
 
 @mcp.tool()

@@ -164,6 +164,17 @@ def handoff_change_events(root: Path, since: str | None, until: str | None) -> l
         for r in handoff_events(root) if _in_window(r["at"], since, until)]
 
 
+def snapshot_change_events(root: Path, since: str | None, until: str | None) -> list[ChangeEvent]:
+    from snapshots import snapshot_events
+
+    return [ChangeEvent(
+        event_id=f"snapshot:{s['snapshot_id']}", timestamp=_norm_time(s["created_at"]), kind="snapshot.created",
+        actor=None, owner=None, target_id=s["snapshot_id"], category=None,
+        summary=f"snapshot {s['snapshot_id']} created ({s['file_count']} files)" + (f": {s['label']}" if s.get("label") else ""),
+        source_ref=f"snapshot:{s['snapshot_id']}", metadata={"reason": s.get("reason"), "total_bytes": s.get("total_bytes")})
+        for s in snapshot_events(root) if _in_window(s["created_at"], since, until)]
+
+
 EXTRA_ADAPTERS: list[Callable[[Path, str | None, str | None], Iterable[ChangeEvent]]] = []
 
 
@@ -184,6 +195,7 @@ def changes(project_root: str | Path, *, since: str | None = None, until: str | 
     events += legacy_memory_events(root, since_n, until_n, memories, covered)
     events += dream_events(root, since_n, until_n)
     events += handoff_change_events(root, since_n, until_n)
+    events += snapshot_change_events(root, since_n, until_n)
     for adapter in EXTRA_ADAPTERS:
         events += list(adapter(root, since_n, until_n))
 

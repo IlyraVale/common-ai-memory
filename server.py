@@ -27,6 +27,7 @@ from memory_witness import MemoryWitnessStore
 from memory_provenance import query_provenance
 from handoffs import HandoffError, HandoffStore
 from timeline import changes as timeline_changes
+from snapshots import SnapshotError, SnapshotManager
 from dreams import (
     DEFAULT_CONFIG as DREAM_CONFIG,
     attach_dream_to_wake,
@@ -307,6 +308,41 @@ def changes(since: str | None = None, until: str | None = None, kinds: list[str]
     "memory". limit is capped at 100.
     """
     return timeline_changes(PROJECT_ROOT, since=since, until=until, kinds=kinds, owner=owner, limit=limit)
+
+
+@mcp.tool()
+def snapshot_create(label: str = "") -> dict:
+    """Create a restore point of all Common AI Memory data. Call ONLY when the user explicitly asks for a
+    snapshot. No model is involved; restoring is not available as a tool (CLI only)."""
+    try:
+        return SnapshotManager(PROJECT_ROOT).create(label=label, reason=f"mcp:{AGENT_ID}")
+    except SnapshotError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def snapshot_list() -> dict:
+    """List restore points (id, time, label, file count, size)."""
+    return SnapshotManager(PROJECT_ROOT).list()
+
+
+@mcp.tool()
+def snapshot_verify(snapshot_id: str) -> dict:
+    """Re-check a snapshot: every file's SHA256 and each database's integrity. Read-only."""
+    try:
+        return SnapshotManager(PROJECT_ROOT).verify(snapshot_id)
+    except SnapshotError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def snapshot_restore_plan(snapshot_id: str) -> dict:
+    """Read-only: what restoring this snapshot would add, overwrite and remove. Restoring itself is done by
+    the user from the command line (common-ai-memory snapshot restore-plan / restore), never by a tool."""
+    try:
+        return SnapshotManager(PROJECT_ROOT).restore_plan(snapshot_id)
+    except SnapshotError as exc:
+        return {"ok": False, "error": str(exc)}
 
 
 @mcp.tool()

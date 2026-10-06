@@ -17,6 +17,10 @@ from config import env_path, load_dotenv
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "snapshot":
+        from snapshots import cli
+
+        raise SystemExit(cli(sys.argv[2:]))
     load_dotenv()
     root = Path(__file__).resolve().parent
     from memory_ui import DEFAULT_PORT, running_instance

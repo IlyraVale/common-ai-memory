@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from dreams import (
+    PENDING_DREAM_INSTRUCTION,
     DreamConfig,
     DreamPreparer,
     DreamStore,
@@ -100,21 +101,23 @@ class CorpusTests(MaterialsBase):
         house.mkdir(parents=True)
         (house / "README.md").write_text("# house manual", encoding="utf-8")
 
-    def test_corpus_owner_private_and_all_shared_only(self) -> None:
-        ids = {row["id"] for row in dream_readable_corpus(self.root, "gpt")}
-        self.assertEqual(ids, {"own-private", "own-shared", "other-shared"})  # 1-4
-        self.assertFalse(any(str(i).startswith("human:") for i in ids))  # 5
-        claude_ids = {row["id"] for row in dream_readable_corpus(self.root, "claude")}
-        self.assertEqual(claude_ids, {"other-private", "other-shared", "own-shared"})
-
-    def test_prepare_uses_the_corpus_and_never_other_private(self) -> None:
-        for owner, forbidden in (("gpt", "other-private"), ("claude", "own-private")):
+    def test_corpus_is_the_whole_memory_house(self) -> None:
+        everything = {"own-private", "own-shared", "other-shared", "other-private"}
+        for owner in ("gpt", "claude", "future-ai"):
             with self.subTest(owner=owner):
-                ids = set(self.prepare(owner)["source_memory_ids"])
-                self.assertNotIn(forbidden, ids)
-                self.assertNotIn("human:_house/README.md", ids)
+                ids = {row["id"] for row in dream_readable_corpus(self.root, owner)}
+                self.assertEqual(ids, everything)  # agent and shared of every owner
+                self.assertFalse(any(str(i).startswith("human:") for i in ids))  # _house excluded
+
+    def test_cross_owner_agent_memories_reach_the_dream(self) -> None:
         gpt_ids = set(self.prepare("gpt")["source_memory_ids"])
-        self.assertTrue({"own-private", "own-shared", "other-shared"} <= gpt_ids)
+        claude_ids = set(self.prepare("claude")["source_memory_ids"])
+        self.assertIn("other-private", gpt_ids)      # GPT dream may use a Claude agent memory
+        self.assertIn("own-private", claude_ids)     # Claude dream may use a GPT agent memory
+        self.assertIn("other-shared", gpt_ids)
+        self.assertIn("own-shared", claude_ids)
+        for ids in (gpt_ids, claude_ids):
+            self.assertNotIn("human:_house/README.md", ids)
 
 
 class HistoricalPoolTests(MaterialsBase):
@@ -132,10 +135,36 @@ class HistoricalPoolTests(MaterialsBase):
         self.verdict("old", "gpt", "corrected", "corrected", _days_before(2, 5))
         self.verdict("old", "gpt", "stale-fb", "stale", _days_before(2, 5))
         rows = self.rows(self.prepare(historical_limit=10, historical_category_cap=10))
-        self.assertIn("historical", rows["none"]["reasons"])  # 6
-        self.assertIn("historical", rows["done"]["reasons"])  # 7
-        for blocked in ("open", "stale-life", "superseded", "review", "corrected", "stale-fb"):  # 8-13
+        for allowed in ("none", "done", "open"):
+            self.assertIn("historical", rows[allowed]["reasons"], allowed)
+        for blocked in ("stale-life", "superseded", "review", "corrected", "stale-fb"):
             self.assertNotIn(blocked, rows, blocked)
+
+    def test_negating_feedback_from_any_identity_counts(self) -> None:
+        _mem(self.root, "gpt-note", "gpt", _days_before(3))
+        self.event("c1", "claude", ["gpt-note"], _days_before(2))
+        self.verdict("c1", "claude", "gpt-note", "corrected", _days_before(2, 5))
+        self.assertNotIn("gpt-note", self.prepare("gpt")["source_memory_ids"])
+
+    def test_open_items_enter_history_and_stay_open(self) -> None:
+        _mem(self.root, "todo", "gpt", _days_before(5), status="open")
+        path = next((self.root / "memory").rglob("*_todo__gpt__agent.md"))
+        before = path.read_bytes()
+        rows = self.rows(self.prepare())
+        self.assertEqual(rows["todo"]["reasons"], ["historical"])
+        self.assertEqual(rows["todo"]["status"], "open")
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(MemoryStore(self.root, "gpt").recent(owner="gpt")[0]["status"], "open")
+
+    def test_review_needed_only_when_today_makes_it_salient(self) -> None:
+        _mem(self.root, "review-old", "gpt", _days_before(4), lifecycle="review_needed")
+        _mem(self.root, "review-new", "gpt", f"{DAY}T01:00:00Z", lifecycle="review_needed")
+        _mem(self.root, "review-hit", "gpt", _days_before(6), lifecycle="review_needed")
+        self.event("t", "gpt", ["review-hit"], f"{DAY}T02:00:00Z")
+        rows = self.rows(self.prepare())
+        self.assertNotIn("review-old", rows)
+        self.assertEqual(rows["review-new"]["reasons"], ["new"])
+        self.assertEqual(rows["review-hit"]["reasons"], ["retrieved"])
 
     def test_reason_name_is_historical(self) -> None:
         _mem(self.root, "a", "gpt", _days_before(3))
@@ -289,6 +318,24 @@ class StabilityTests(MaterialsBase):
             self.assertIs(scrap["factual_authority"], False)
             self.assertTrue(scrap["derived"])
             self.assertNotIn(scrap["id"], package["source_memory_ids"])
+
+
+
+class PromptContractTests(unittest.TestCase):
+    def test_instruction_allows_dream_fiction_and_keeps_the_factual_boundary(self) -> None:
+        text = PENDING_DREAM_INSTRUCTION.lower()
+        for idea in (("invent", "never happened"),                       # dream-only events may be invented
+                     ("surreal", "illogical", "abruptly"),               # surreal, illogical transitions
+                     ("never present invented", "really happened"),      # invented content is not factual
+                     ("factual_authority=false",),
+                     ("do not create long-term memories", "do not write the dream into ordinary memory"),
+                     ("lifecycle", "verification")):                     # no write-back to memories
+            for phrase in idea:
+                self.assertIn(phrase, text)
+        self.assertNotIn("organize a concise", text)
+        self.assertNotIn("only the supplied materials", text)
+        for owner_word in ("gpt", "claude"):
+            self.assertNotIn(owner_word, text)                           # no per-model persona
 
 
 if __name__ == "__main__":

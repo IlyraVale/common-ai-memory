@@ -269,18 +269,19 @@ class DreamTests(unittest.TestCase):
         second = self.preparer.prepare("gpt", dream_date="2026-09-29")
         self.assertEqual(first["source_memory_ids"], second["source_memory_ids"])
         rows = {item["id"]: item for item in first["materials"]}
-        self.assertEqual(
-            {memory_id for memory_id, item in rows.items() if "historical" in item["reasons"]},
-            {"a", "b"},
-        )
-        self.assertNotIn("historical", rows["d"]["reasons"])
-        self.assertNotIn("c", rows)
+        historical = {memory_id for memory_id, item in rows.items() if "historical" in item["reasons"]}
+        self.assertEqual(len(historical), 2)                      # historical_limit=2
+        self.assertTrue(historical <= {"a", "b", "c"})            # open items are background too
+        self.assertNotIn("historical", rows["d"]["reasons"])     # stale feedback keeps it out of history
 
-    def test_owner_isolation_and_timezone_boundary(self):
+    def test_whole_house_corpus_and_timezone_boundary(self):
         _record(self.root, "g1", "gpt", "2026-09-28T16:30:00Z")
         _record(self.root, "c1", "claude", "2026-09-28T16:30:00Z")
+        _record(self.root, "g0", "gpt", "2026-09-28T15:59:00Z")  # 23:59 the day before in Shanghai
         package = self.preparer.prepare("gpt", dream_date="2026-09-29", timezone_name="Asia/Shanghai")
-        self.assertEqual(package["source_memory_ids"], ["g1"])
+        rows = {item["id"]: item for item in package["materials"]}
+        self.assertEqual({i for i, item in rows.items() if item["reasons"] == ["new"]}, {"c1", "g1"})
+        self.assertEqual(rows["g0"]["reasons"], ["historical"])
 
     def test_owner_dream_mode_default_and_valid_values(self):
         self.assertEqual(
@@ -398,7 +399,8 @@ class DreamTests(unittest.TestCase):
         self.assertIsNotNone(lease)
         self.assertEqual(pending["claim_token"], lease.claim_token)
         self.assertEqual(pending["expires_at"], lease.expires_at)
-        self.assertIn("do not add facts", pending["instruction"])
+        self.assertIn("factual_authority=false", pending["instruction"])
+        self.assertIn("never present invented dream events", pending["instruction"])
         with sqlite3.connect(self.root / "state" / "dream-runtime.sqlite3") as db:
             package_json = db.execute(
                 "SELECT package_json FROM dream_leases WHERE owner = ? AND dream_date = ?",
@@ -1117,7 +1119,7 @@ class DreamRunnerModeTests(unittest.TestCase):
     def test_unified_plain_instruction(self):
         prompt = build_prompt(_package("gpt", "2026-09-29"))
         self.assertTrue(prompt.startswith(dream_instruction()))
-        for phrase in ("derived shadow", "not a factual source", "open items", "relationship conclusions", "project persona"):
+        for phrase in ("derived shadow", "not a factual source", "open items", "relationship conclusions", "persona"):
             self.assertIn(phrase, prompt)
 
     def test_cli_isolated_cwd_args_cleanup_and_no_marker_leak(self):

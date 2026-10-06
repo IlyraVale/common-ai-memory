@@ -38,13 +38,23 @@ DREAM_PREPARED_DIR = Path("state") / "dream-prepared"
 DREAM_MODES = frozenset({"cli", "api", "on_wake"})
 DEFAULT_DREAM_LEASE_TTL = timedelta(minutes=10)
 PENDING_DREAM_INSTRUCTION = (
-    "Using only the supplied materials, organize a concise dream body for this date. "
-    "You may compress, reorganize, and make natural associations, but do not add facts absent from the materials; "
-    "do not upgrade inferred content into user statements or observations; do not create relationship conclusions, "
-    "open items, or long-term memories; and do not modify source memories or write the dream into ordinary memory. "
-    "This dream is derived shadow material and is not a factual source. Do not role-play, introduce a project persona, "
-    "or pursue poetic language. Materials marked ephemeral_scrap are short-lived associative fragments, never facts; "
-    "do not expand them into factual claims. Return only the dream body suitable for dream_commit."
+    "Write the dream for this date: the kind of dream a person actually has, not a summary of the day and "
+    "not a tidy story. The supplied materials are anchors taken from real memories. Recombine, distort, merge and "
+    "transform them freely, and you may invent dream-only scenes, actions, dialogue and objects that never happened. "
+    "Surreal and illogical is welcome: scenes change abruptly with no explanation, time runs out of order, people "
+    "swap roles or identities, places nest inside one another, scale is wrong, objects do impossible things, cause "
+    "and effect follow dream logic, a small thing becomes enormous, and a single word, colour, sound or gesture can "
+    "jump to a completely different scene. No beginning-middle-end, timeline or correct geography is needed; the "
+    "dream may stop mid-scene, and materials do not all have to appear or be explained. Keep it concrete: specific "
+    "people, places, actions, things, sounds and strange events, rather than abstract metaphor, lyrical "
+    "word-painting or essay prose. Write in the language of the materials.\n\n"
+    "Everything invented belongs only to the dream. This dream is derived shadow material with "
+    "factual_authority=false and is not a factual source: never present invented dream events as things that really "
+    "happened and draw no factual inferences from them. Do not create long-term memories, open items or "
+    "relationship conclusions; do not change, correct or re-status source memories (status, lifecycle, "
+    "verification); and do not write the dream into ordinary memory. Do not role-play or adopt a persona. "
+    "Materials marked ephemeral_scrap are short-lived associative fragments, never facts. Return only the dream "
+    "body suitable for dream_commit."
 )
 OWNER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -620,28 +630,30 @@ INACTIVE_LIFECYCLES = frozenset({"stale", "superseded"})
 HISTORICAL_BLOCKING_VERDICTS = ("corrected", "stale")
 
 
-def historical_feedback_blocks(db: sqlite3.Connection, owner: str, before: datetime) -> set[str]:
-    """Memory ids this owner ever marked corrected or stale before ``before`` (read-only)."""
+def negating_feedback(db: sqlite3.Connection, before: datetime) -> dict[str, set[str]]:
+    """Memory ids any identity marked corrected or stale before ``before``, with those verdicts (read-only)."""
     try:
         rows = db.execute(
-            "SELECT DISTINCT memory_id FROM retrieval_feedback WHERE agent_id=? AND verdict IN (?, ?) "
-            "AND created_at<?",
-            (owner, *HISTORICAL_BLOCKING_VERDICTS, before.isoformat().replace("+00:00", "Z")),
+            "SELECT DISTINCT memory_id, verdict FROM retrieval_feedback WHERE verdict IN (?, ?) AND created_at<?",
+            (*HISTORICAL_BLOCKING_VERDICTS, before.isoformat().replace("+00:00", "Z")),
         ).fetchall()
     except sqlite3.Error:
-        return set()
-    return {str(row[0]) for row in rows}
+        return {}
+    result: dict[str, set[str]] = {}
+    for memory_id, verdict in rows:
+        result.setdefault(str(memory_id), set()).add(str(verdict))
+    return result
 
 
 def dream_readable_corpus(project_root: str | Path, owner: str) -> list[dict[str, Any]]:
-    """Memories a Dream for ``owner`` may draw on.
+    """Memories a Dream for ``owner`` may draw on: every ordinary memory record any identity can read.
 
-    That is the owner's own memories (agent or shared scope) plus every shared memory written by
-    another identity. Another identity's agent-scope memories, human house manuals and anything
-    that is not an ordinary memory record are never included. Records come from MemoryStore, with
-    lifecycle normalized the same way recall sees it; nothing is modified.
+    Reading is not owner-restricted in Common AI Memory (owners restrict changes), so the candidates
+    are the whole memory house: agent and shared records of every owner. Human house manuals and
+    anything that is not an ordinary memory record are never included. Records come from MemoryStore
+    with lifecycle normalized the same way recall sees it; nothing is modified.
     """
-    owner = validate_owner(owner)
+    validate_owner(owner)
     corpus: list[dict[str, Any]] = []
     for row in MemoryStore(project_root, owner)._filtered("all", include_inactive=True):
         memory_id = str(row.get("id") or "")
@@ -649,10 +661,9 @@ def dream_readable_corpus(project_root: str | Path, owner: str) -> list[dict[str
             continue
         row_owner = str(row.get("owner") or "").strip().lower()
         scope = str(row.get("scope") or "").strip().lower()
-        if row_owner == "human" or scope not in {"agent", "shared"}:
+        if not row_owner or row_owner == "human" or scope not in {"agent", "shared"}:
             continue
-        if row_owner == owner or scope == "shared":
-            corpus.append(row)
+        corpus.append(row)
     return corpus
 
 
@@ -723,14 +734,14 @@ class DreamPreparer:
         counts: dict[str, int] = {}
         feedback: dict[str, set[str]] = {}
         event_range: dict[str, str | None] = {"start": None, "end": None}
-        history_blocked: set[str] = set()
+        negated: dict[str, set[str]] = {}
         db = _readonly_feedback(self.feedback_db)
         try:
             if db is not None:
                 counts, _, feedback, event_range = effective_retrievals(
                     db, owner, day, timezone_name, self.config
                 )
-                history_blocked = historical_feedback_blocks(db, owner, end)
+                negated = negating_feedback(db, end)
         finally:
             if db is not None:
                 db.close()
@@ -745,7 +756,9 @@ class DreamPreparer:
             stamp = created(row)
             return stamp is not None and start <= stamp < end
 
+        # Corrected by anyone, today or before: never Dream material.
         excluded = {memory_id for memory_id, values in feedback.items() if "corrected" in values}
+        excluded |= {memory_id for memory_id, verdicts in negated.items() if "corrected" in verdicts}
         cooldown = recent_dream_sources(self.project_root, owner, day, self.config.dream_cooldown_days)
 
         def category(row: dict[str, Any]) -> str:
@@ -764,15 +777,14 @@ class DreamPreparer:
             )
         )
 
-        # Historical background: active, not an open item, created before this Dream day, never
-        # corrected or marked stale. ``status`` may be missing or "done".
+        # Historical background: active, created before this Dream day, never corrected or marked stale
+        # by anyone. Task status does not matter: open items are background too (nothing is changed).
         recent_cutoff = start - timedelta(days=max(0, self.config.recent_history_days))
         historical_rows = [
             row for row in records
-            if row.get("status") != "open"
-            and str(row.get("lifecycle") or "active") == "active"
+            if str(row.get("lifecycle") or "active") == "active"
             and str(row["id"]) not in excluded
-            and str(row["id"]) not in history_blocked
+            and str(row["id"]) not in negated
             and "stale" not in feedback.get(str(row["id"]), set())
             and (created(row) is None or created(row) < start)
         ]
@@ -1150,7 +1162,7 @@ class DreamApiAdapter(Protocol):
 
 
 def dream_instruction() -> str:
-    """One deliberately plain instruction shared by every generation mode."""
+    """One instruction shared by every generation mode (on_wake, CLI, API)."""
     return PENDING_DREAM_INSTRUCTION
 
 

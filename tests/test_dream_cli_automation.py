@@ -210,10 +210,11 @@ class SuccessAndFallbackTests(Base):
         self.assertIn("-p", claude_argv)
         self.assertEqual(codex_argv[0], "exec")
         self.assertIn(f"{LATEST}", json.dumps(self.calls("claude")[0]["prompt"]))
-        self.assertIn("claude-latest", self.calls("claude")[0]["prompt"])
-        self.assertNotIn("gpt-latest", self.calls("claude")[0]["prompt"])
-        self.assertIn("gpt-latest", self.calls("codex")[0]["prompt"])
-        self.assertNotIn("claude-latest", self.calls("codex")[0]["prompt"])
+        for cli, owner in (("claude", "claude"), ("codex", "gpt")):
+            package = json.loads(self.calls(cli)[0]["prompt"].split("INPUT PACKAGE (JSON):\n", 1)[1])
+            self.assertEqual(package["owner"], owner)
+            # Dream material is drawn from the whole memory house, so both owners' new memories appear.
+            self.assertEqual({item["id"] for item in package["materials"]}, {"claude-latest", "gpt-latest"})
 
     def test_cli_flags_isolate_tools_settings_and_persistence(self) -> None:
         self.run_batch()

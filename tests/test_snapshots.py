@@ -210,7 +210,34 @@ class SnapshotTests(unittest.TestCase):
                 self.manager.restore(snap, confirm=token)
         self.assertIn("rolled back", str(ctx.exception))
         self.assertEqual(self.memory_text(), before)
-        self.assertFalse(any(p.name.startswith(".restore-staging") for p in self.root.iterdir()))
+        # staging and the (now empty) rollback folder are both gone
+        self.assertFalse(any(p.name.startswith(".restore-") for p in self.root.iterdir()))
+
+    def test_rollback_folder_is_kept_when_moving_files_back_fails(self) -> None:
+        snap = self.manager.create()["snapshot_id"]
+        self.store.remember("第二条", "life/daily")
+        self.store.update(memory_id=self.first, content="当前版本")
+        token = self.manager.issue_restore_token(snap)["restore_token"]
+        real_replace = os.replace
+        calls = {"staged": 0, "back": 0}
+
+        def flaky(src, dst):
+            if ".restore-staging-" in str(src):
+                calls["staged"] += 1
+                if calls["staged"] == 2:
+                    raise PermissionError("file in use")
+            if ".restore-rollback-" in str(src):
+                calls["back"] += 1
+                if calls["back"] == 1:
+                    raise PermissionError("still locked")
+            return real_replace(src, dst)
+
+        with patch.object(snapshots.os, "replace", side_effect=flaky):
+            with self.assertRaises(SnapshotError):
+                self.manager.restore(snap, confirm=token)
+        kept = [p for p in self.root.iterdir() if p.name.startswith(".restore-rollback-")]
+        self.assertEqual(len(kept), 1)  # the only copy of a file that could not be moved back
+        self.assertTrue(any(p.is_file() for p in kept[0].rglob("*")))
 
     def test_busy_lock_is_refused(self) -> None:
         lock = self.store._acquire_lock()

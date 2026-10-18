@@ -411,6 +411,8 @@ class SnapshotManager:
                     for live, keep in reversed(moved):
                         live.parent.mkdir(parents=True, exist_ok=True)
                         os.replace(keep, live)
+                    if rollback.exists() and not any(p.is_file() for p in rollback.rglob("*")):
+                        shutil.rmtree(rollback, ignore_errors=True)  # everything is back; only empty folders remain
                     raise
         except SnapshotError:
             raise

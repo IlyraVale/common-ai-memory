@@ -2,6 +2,14 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
+## [Unreleased]
+
+### Dream materials v2
+- Dream material candidates are the whole memory house (every owner, agent and shared); human manuals, stale, superseded and corrected memories are never used.
+- The old `random_done` pool is replaced by `historical`: active background memories of any task status, excluding anything marked corrected or stale by any identity.
+- A 7-day cooldown keeps recently dreamed history out of the next Dreams, recent history (30 days) is preferred with one slot kept for an older memory, and at most two historical memories per category are used. When material runs short the rules relax instead of producing an empty Dream. Packets stay small (about 6 to 12 memories, 6000 characters).
+- The Dream instruction now asks for a real dream (surreal, illogical, abrupt, concrete) and may invent dream-only events, while keeping `factual_authority=false` and never writing anything back into memories.
+
 ## [0.3.0] - 2026-10-04
 
 ### Lounge Inbox

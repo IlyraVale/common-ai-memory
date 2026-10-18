@@ -27,6 +27,33 @@ Any CLI problem (executable missing, launch failure, auth expired, quota exhaust
 
 The `api` mode currently provides the configuration and adapter contract only. This distribution does not include a built-in network provider. Configuring `api` without registering an adapter fails with an explicit error; credentials are referenced by environment-variable name and are never stored in Dream packets or logs.
 
+## Materials
+
+Preparing a Dream selects a small packet of real memories as anchors; it does not think in the background and it never changes memories.
+
+The candidates are the whole memory house: every ordinary memory record of every owner, agent or shared scope, exactly as MemoryStore reads them (reading is not owner-restricted; owners restrict changes). Human house manuals and anything that is not a memory record are never used. Stale and superseded memories are never used, nor anything any identity marked `corrected` in retrieval feedback.
+
+A small packet is chosen from these candidates; the library size never grows the prompt:
+
+1. **new**: memories created on the Dream date (up to `new_limit`, default 6). Always included, even if they appeared in a recent Dream, including `review_needed` ones.
+2. **retrieved**: memories this owner actually retrieved that day (up to `retrieval_limit`, default 6), ranked by effective retrievals and feedback. Never excluded for having been dreamed recently; among equally ranked candidates, ones not dreamed recently and from categories not yet present come first.
+3. **historical**: background from older memories (up to `historical_limit`, default 6). It must be `active` (not `review_needed`), created before the Dream date, and never marked corrected or stale by anyone. Task status does not matter: open items can be dreamed about too. Being dreamed about never changes a memory's status, lifecycle or verification.
+
+Historical selection, deterministic per owner and date:
+
+- **Cooldown**: memories used in this owner's Dreams during the previous `dream_cooldown_days` (default 7) wait their turn.
+- **Recency**: memories from the last `recent_history_days` (default 30) come first; `historical_older_slots` (default 1) keeps room for an older memory so distant associations still occur.
+- **Diversity**: at most `historical_category_cap` (default 2) memories per category, counting what new and retrieved already contributed.
+- **Never starve**: if there is not enough material, the category cap is relaxed first, then memories in cooldown are reused, longest since last dreamed and least often used first. Repetition is preferred over an empty or failed Dream.
+
+A typical packet holds about 6 to 12 memories and always stays within `total_chars` (6000). A memory selected for several reasons occupies one slot and lists all reasons. `source_memory_ids` records exactly the memories that entered the packet. Dreams that already exist are never regenerated; Dream files without readable source ids simply do not contribute to the cooldown.
+
+## Writing the Dream
+
+The materials are anchors, not a script. The writer (the chat model, a local CLI or an API adapter, all with the same instruction) is asked for a dream as people actually have them: surreal, illogical, abrupt scene changes, jumbled time, people and places swapping and nesting, impossible objects, no explanation and no proper ending required, while staying concrete rather than abstract or lyrical. Dream-only scenes, actions and dialogue may be invented.
+
+Everything invented belongs only to the Dream. A Dream is derived shadow material with `factual_authority=false`: invented events are never facts, nothing is written back into ordinary memory, and source memories, their status, lifecycle and verification are never changed. No persona is prescribed for any model.
+
 ## Ephemeral scraps
 
 Dream preparation can include at most one short-lived scrap. Scraps are derived, ephemeral, non-authoritative fragments kept outside ordinary memory, with a default TTL of 72 hours (configurable from 24 to 168 hours). They never appear in normal recall, wake memory, archive, or evolve, and they do not count as independent evidence. Explicitly deleted, forgotten, corrected, stale, superseded, or secret-like material is rejected rather than retained as a scrap.
@@ -50,7 +77,7 @@ Only the latest complete day is normally selected. The one-day grace rule can re
 
 ## Quickstart
 
-With no configuration, call `wake`, write a body using only `pending_dream.materials`, and submit it with `dream_commit`. To prepare in advance:
+With no configuration, call `wake`, write a dream from the anchors in `pending_dream.materials`, and submit it with `dream_commit`. To prepare in advance:
 
 ```sh
 python dream_nightly.py --owner my-agent --timezone Asia/Shanghai

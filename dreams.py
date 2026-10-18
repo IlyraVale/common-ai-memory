@@ -38,13 +38,23 @@ DREAM_PREPARED_DIR = Path("state") / "dream-prepared"
 DREAM_MODES = frozenset({"cli", "api", "on_wake"})
 DEFAULT_DREAM_LEASE_TTL = timedelta(minutes=10)
 PENDING_DREAM_INSTRUCTION = (
-    "Using only the supplied materials, organize a concise dream body for this date. "
-    "You may compress, reorganize, and make natural associations, but do not add facts absent from the materials; "
-    "do not upgrade inferred content into user statements or observations; do not create relationship conclusions, "
-    "open items, or long-term memories; and do not modify source memories or write the dream into ordinary memory. "
-    "This dream is derived shadow material and is not a factual source. Do not role-play, introduce a project persona, "
-    "or pursue poetic language. Materials marked ephemeral_scrap are short-lived associative fragments, never facts; "
-    "do not expand them into factual claims. Return only the dream body suitable for dream_commit."
+    "Write the dream for this date: the kind of dream a person actually has, not a summary of the day and "
+    "not a tidy story. The supplied materials are anchors taken from real memories. Recombine, distort, merge and "
+    "transform them freely, and you may invent dream-only scenes, actions, dialogue and objects that never happened. "
+    "Surreal and illogical is welcome: scenes change abruptly with no explanation, time runs out of order, people "
+    "swap roles or identities, places nest inside one another, scale is wrong, objects do impossible things, cause "
+    "and effect follow dream logic, a small thing becomes enormous, and a single word, colour, sound or gesture can "
+    "jump to a completely different scene. No beginning-middle-end, timeline or correct geography is needed; the "
+    "dream may stop mid-scene, and materials do not all have to appear or be explained. Keep it concrete: specific "
+    "people, places, actions, things, sounds and strange events, rather than abstract metaphor, lyrical "
+    "word-painting or essay prose. Write in the language of the materials.\n\n"
+    "Everything invented belongs only to the dream. This dream is derived shadow material with "
+    "factual_authority=false and is not a factual source: never present invented dream events as things that really "
+    "happened and draw no factual inferences from them. Do not create long-term memories, open items or "
+    "relationship conclusions; do not change, correct or re-status source memories (status, lifecycle, "
+    "verification); and do not write the dream into ordinary memory. Do not role-play or adopt a persona. "
+    "Materials marked ephemeral_scrap are short-lived associative fragments, never facts. Return only the dream "
+    "body suitable for dream_commit."
 )
 OWNER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -55,7 +65,11 @@ QUERY_WORD_RE = re.compile(r"[a-z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff]+")
 class DreamConfig:
     new_limit: int = 6
     retrieval_limit: int = 6
-    random_done_limit: int = 3
+    historical_limit: int = 6
+    dream_cooldown_days: int = 7
+    recent_history_days: int = 30
+    historical_category_cap: int = 2
+    historical_older_slots: int = 1
     total_chars: int = 6000
     item_chars: int = 1200
     max_dream_chars: int = 8000
@@ -612,6 +626,77 @@ def _score(reasons: list[str], effective_count: int, feedback: set[str]) -> floa
     return round(value, 6)
 
 
+INACTIVE_LIFECYCLES = frozenset({"stale", "superseded"})
+HISTORICAL_BLOCKING_VERDICTS = ("corrected", "stale")
+
+
+def negating_feedback(db: sqlite3.Connection, before: datetime) -> dict[str, set[str]]:
+    """Memory ids any identity marked corrected or stale before ``before``, with those verdicts (read-only)."""
+    try:
+        rows = db.execute(
+            "SELECT DISTINCT memory_id, verdict FROM retrieval_feedback WHERE verdict IN (?, ?) AND created_at<?",
+            (*HISTORICAL_BLOCKING_VERDICTS, before.isoformat().replace("+00:00", "Z")),
+        ).fetchall()
+    except sqlite3.Error:
+        return {}
+    result: dict[str, set[str]] = {}
+    for memory_id, verdict in rows:
+        result.setdefault(str(memory_id), set()).add(str(verdict))
+    return result
+
+
+def dream_readable_corpus(project_root: str | Path, owner: str) -> list[dict[str, Any]]:
+    """Memories a Dream for ``owner`` may draw on: every ordinary memory record any identity can read.
+
+    Reading is not owner-restricted in Common AI Memory (owners restrict changes), so the candidates
+    are the whole memory house: agent and shared records of every owner. Human house manuals and
+    anything that is not an ordinary memory record are never included. Records come from MemoryStore
+    with lifecycle normalized the same way recall sees it; nothing is modified.
+    """
+    validate_owner(owner)
+    corpus: list[dict[str, Any]] = []
+    for row in MemoryStore(project_root, owner)._filtered("all", include_inactive=True):
+        memory_id = str(row.get("id") or "")
+        if not memory_id or not row.get("content") or memory_id.startswith("human:"):
+            continue
+        row_owner = str(row.get("owner") or "").strip().lower()
+        scope = str(row.get("scope") or "").strip().lower()
+        if not row_owner or row_owner == "human" or scope not in {"agent", "shared"}:
+            continue
+        corpus.append(row)
+    return corpus
+
+
+def recent_dream_sources(
+    project_root: str | Path, owner: str, dream_date: str, days: int
+) -> dict[str, dict[str, Any]]:
+    """Source memory ids of this owner's committed Dreams on the ``days`` dates before ``dream_date``.
+
+    Returns ``{memory_id: {"last": newest date it was dreamed, "count": dreams it appeared in}}``.
+    Missing, unreadable or malformed Dream files are skipped: cooldown is a preference, never a
+    reason for preparation to fail.
+    """
+    owner = validate_owner(owner)
+    day = date.fromisoformat(validate_dream_date(dream_date))
+    seen: dict[str, dict[str, Any]] = {}
+    for offset in range(1, max(0, int(days)) + 1):
+        previous = (day - timedelta(days=offset)).isoformat()
+        try:
+            _, dated = safe_dream_paths(project_root, owner, previous)
+            if not dated.is_file():
+                continue
+            metadata = parse_dream(dated.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if metadata.get("owner") != owner:
+            continue
+        for memory_id in _ordered_unique(metadata.get("source_memory_ids", [])):
+            entry = seen.setdefault(memory_id, {"last": previous, "count": 0})
+            entry["count"] += 1
+            entry["last"] = max(entry["last"], previous)
+    return seen
+
+
 class DreamPreparer:
     def __init__(
         self,
@@ -642,31 +727,43 @@ class DreamPreparer:
         day = validate_dream_date(dream_date or current.date())
         start, end = local_day_bounds(day, timezone_name)
         records = [
-            row for row in MemoryStore(self.project_root, owner)._read_all()
-            if row.get("owner") == owner and row.get("id") and row.get("content")
+            row for row in dream_readable_corpus(self.project_root, owner)
+            if str(row.get("lifecycle") or "active") not in INACTIVE_LIFECYCLES
         ]
         records_by_id = {str(row["id"]): row for row in records}
         counts: dict[str, int] = {}
         feedback: dict[str, set[str]] = {}
         event_range: dict[str, str | None] = {"start": None, "end": None}
+        negated: dict[str, set[str]] = {}
         db = _readonly_feedback(self.feedback_db)
         try:
             if db is not None:
                 counts, _, feedback, event_range = effective_retrievals(
                     db, owner, day, timezone_name, self.config
                 )
+                negated = negating_feedback(db, end)
         finally:
             if db is not None:
                 db.close()
 
-        def is_today(row: dict[str, Any]) -> bool:
+        def created(row: dict[str, Any]) -> datetime | None:
             try:
-                stamp = _parse_timestamp(str(row.get("created_at") or ""))
+                return _parse_timestamp(str(row.get("created_at") or "")).astimezone(timezone.utc)
             except (TypeError, ValueError):
-                return False
-            return start <= stamp.astimezone(timezone.utc) < end
+                return None
 
+        def is_today(row: dict[str, Any]) -> bool:
+            stamp = created(row)
+            return stamp is not None and start <= stamp < end
+
+        # Corrected by anyone, today or before: never Dream material.
         excluded = {memory_id for memory_id, values in feedback.items() if "corrected" in values}
+        excluded |= {memory_id for memory_id, verdicts in negated.items() if "corrected" in verdicts}
+        cooldown = recent_dream_sources(self.project_root, owner, day, self.config.dream_cooldown_days)
+
+        def category(row: dict[str, Any]) -> str:
+            return str(row.get("category") or "")
+
         new_rows = [row for row in records if is_today(row) and str(row["id"]) not in excluded]
         new_rows.sort(key=lambda row: (str(row.get("created_at") or ""), str(row["id"])))
         retrieval_rows = [
@@ -679,52 +776,117 @@ class DreamPreparer:
                 str(row["id"]),
             )
         )
-        random_rows = [
+
+        # Historical background: active, created before this Dream day, never corrected or marked stale
+        # by anyone. Task status does not matter: open items are background too (nothing is changed).
+        recent_cutoff = start - timedelta(days=max(0, self.config.recent_history_days))
+        historical_rows = [
             row for row in records
-            if row.get("status") == "done"
-            and not is_today(row)
+            if str(row.get("lifecycle") or "active") == "active"
             and str(row["id"]) not in excluded
+            and str(row["id"]) not in negated
             and "stale" not in feedback.get(str(row["id"]), set())
+            and (created(row) is None or created(row) < start)
         ]
+        historical_ids = {str(row["id"]) for row in historical_rows}
         rng = random.Random(f"{owner}:{day}")
-        random_rows.sort(key=lambda row: str(row["id"]))
-        rng.shuffle(random_rows)
+
+        def shuffled(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            ordered = sorted(rows, key=lambda row: str(row["id"]))
+            rng.shuffle(ordered)
+            return ordered
+
+        fresh = [row for row in historical_rows if str(row["id"]) not in cooldown]
+        recent_pool = shuffled([row for row in fresh if created(row) is not None and created(row) >= recent_cutoff])
+        older_pool = shuffled([row for row in fresh if created(row) is None or created(row) < recent_cutoff])
+        # Reuse after cooldown: longest since last dreamed first, then least often dreamed.
+        cooled_pool = sorted(
+            (row for row in historical_rows if str(row["id"]) in cooldown),
+            key=lambda row: (cooldown[str(row["id"])]["last"], cooldown[str(row["id"])]["count"], str(row["id"])),
+        )
 
         selected: list[dict[str, Any]] = []
         selected_ids: set[str] = set()
 
-        def add(rows: list[dict[str, Any]], source_kind: str, limit: int) -> None:
-            added = 0
-            for row in rows:
+        def category_count(name: str) -> int:
+            return sum(1 for item in selected if item.get("category") == name)
+
+        def take(row: dict[str, Any], source_kind: str) -> None:
+            memory_id = str(row["id"])
+            reasons = [source_kind]
+            if source_kind != "historical" and memory_id in historical_ids:
+                reasons.append("historical")
+            selected_ids.add(memory_id)
+            selected.append({
+                "id": memory_id,
+                "category": row.get("category"),
+                "created_at": row.get("created_at"),
+                "status": row.get("status"),
+                "source": row.get("source"),
+                "reasons": reasons,
+                "effective_retrieval_count": counts.get(memory_id, 0),
+                "feedback": sorted(feedback.get(memory_id, set())),
+                "score": _score(reasons, counts.get(memory_id, 0), feedback.get(memory_id, set())),
+                "content": str(row.get("content") or ""),
+            })
+
+        def merge_reason(memory_id: str, source_kind: str) -> None:
+            for item in selected:
+                if item["id"] == memory_id and source_kind not in item["reasons"]:
+                    item["reasons"].append(source_kind)
+                    item["score"] = _score(item["reasons"], counts.get(memory_id, 0), feedback.get(memory_id, set()))
+
+        # Today's new memories: highest priority, never held back by cooldown or category caps.
+        added = 0
+        for row in new_rows:
+            if added >= self.config.new_limit:
+                break
+            take(row, "new")
+            added += 1
+
+        # Today's real retrievals: never excluded by cooldown; within one score, prefer memories not
+        # dreamed recently and categories not yet present.
+        for row in retrieval_rows:
+            if str(row["id"]) in selected_ids:
+                merge_reason(str(row["id"]), "retrieved")
+        pending = [row for row in retrieval_rows if str(row["id"]) not in selected_ids]
+        added = 0
+        while pending and added < self.config.retrieval_limit:
+            best_score = -_score([], counts.get(str(pending[0]["id"]), 0), feedback.get(str(pending[0]["id"]), set()))
+            group = [row for row in pending
+                     if -_score([], counts.get(str(row["id"]), 0), feedback.get(str(row["id"]), set())) == best_score]
+            choice = min(group, key=lambda row: (str(row["id"]) in cooldown, category_count(category(row)), str(row["id"])))
+            pending.remove(choice)
+            take(choice, "retrieved")
+            added += 1
+
+        # Historical background with per-category cap: recent (last N days) first, one slot kept for
+        # an older memory, then progressively relax: cap off, then memories dreamed during cooldown.
+        limit = max(0, self.config.historical_limit)
+        cap = max(1, self.config.historical_category_cap)
+        historical_added = 0
+
+        def fill(pool: list[dict[str, Any]], quota: int, capped: bool) -> None:
+            nonlocal historical_added
+            for row in pool:
+                if historical_added >= limit or quota <= 0:
+                    return
                 memory_id = str(row["id"])
                 if memory_id in selected_ids:
-                    for item in selected:
-                        if item["id"] == memory_id and source_kind not in item["reasons"]:
-                            item["reasons"].append(source_kind)
-                            item["score"] = _score(
-                                item["reasons"], counts.get(memory_id, 0), feedback.get(memory_id, set())
-                            )
                     continue
-                if added >= limit:
-                    break
-                selected_ids.add(memory_id)
-                selected.append({
-                    "id": memory_id,
-                    "category": row.get("category"),
-                    "created_at": row.get("created_at"),
-                    "status": row.get("status"),
-                    "source": row.get("source"),
-                    "reasons": [source_kind],
-                    "effective_retrieval_count": counts.get(memory_id, 0),
-                    "feedback": sorted(feedback.get(memory_id, set())),
-                    "score": _score([source_kind], counts.get(memory_id, 0), feedback.get(memory_id, set())),
-                    "content": str(row.get("content") or ""),
-                })
-                added += 1
+                if capped and category_count(category(row)) >= cap:
+                    continue
+                take(row, "historical")
+                historical_added += 1
+                quota -= 1
 
-        add(new_rows, "new", self.config.new_limit)
-        add(retrieval_rows, "retrieved", self.config.retrieval_limit)
-        add(random_rows, "random_done", self.config.random_done_limit)
+        older_reserved = min(max(0, self.config.historical_older_slots), limit) if older_pool else 0
+        fill(recent_pool, limit - older_reserved, capped=True)
+        fill(older_pool, limit, capped=True)
+        fill(recent_pool, limit, capped=True)
+        fill(recent_pool + older_pool, limit, capped=False)
+        fill(cooled_pool, limit, capped=True)
+        fill(cooled_pool, limit, capped=False)
 
         used_chars = 0
         truncated = False
@@ -1000,7 +1162,7 @@ class DreamApiAdapter(Protocol):
 
 
 def dream_instruction() -> str:
-    """One deliberately plain instruction shared by every generation mode."""
+    """One instruction shared by every generation mode (on_wake, CLI, API)."""
     return PENDING_DREAM_INSTRUCTION
 
 

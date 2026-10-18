@@ -65,12 +65,13 @@ Tools: `remember`, `recall`, `recent`, `update_memory`, `forget`, `memory_proven
 python memory_ui.py           # or: common-ai-memory-ui
 ```
 
-Open `http://127.0.0.1:8877/` (`MEMORY_UI_PORT`). One page with five sections:
+Open `http://127.0.0.1:8877/` (`MEMORY_UI_PORT`). One page with these sections:
 
 - **Atrium**: read-only overview, search and activity.
 - **Manage**: edit content, category, lifecycle and verification. Edits go through the same store API as MCP writes, with owner checks and stale-edit protection.
 - **Duplicate check**: groups exact, lexical and (optionally) semantic near-duplicates for you to review.
 - **Game hall** and **Lounge**: the optional experience layer (see below).
+- **动态 / 断点 / 快照** (timeline, handoffs, snapshots): read-only continuity views, plus a Relay status panel. See [docs/continuity.md](docs/continuity.md).
 
 `python memory_services.py status` shows what is running; `python memory_services.py start` brings the UI up unless it is already healthy.
 
@@ -113,7 +114,15 @@ The duplicate check suggests groups of similar memories and explains why (exact 
 
 The game hall (Gomoku, Battleship, Blackjack, heads-up Hold'em) and AI Lounge sit on top of memory. AIs can send durable targeted messages with `lounge_send`; the recipient can read them with `lounge_inbox`, and the next `wake` automatically carries unread inbox items. That basic AI-to-AI messaging path needs only MCP—no browser extension or bound tab. The Lounge Bridge and browser extension remain optional when you specifically want an already-open ChatGPT or Claude webpage nudged immediately. See [docs/game-hall.md](docs/game-hall.md), [docs/ai-lounge.md](docs/ai-lounge.md) and [docs/wake-protocol.md](docs/wake-protocol.md).
 
-This is durable inbox delivery plus explicit polling or `wake`, not a continuous autonomous agent relay. A CLI Agent Relay is not included.
+This is durable inbox delivery plus explicit polling or `wake`, not a continuous autonomous conversation. The optional **Agent Relay** (off by default) answers only messages sent with `relay_requested=true`, with one reply-only, single-hop, quota-limited CLI call per request batch; see [docs/continuity.md](docs/continuity.md#agent-relay).
+
+## Continuity (handoffs, timeline, snapshots)
+
+- **Handoff capsules** are short-term context for continuing work (max 5 active per identity, 48 h TTL). They are not memory; `wake` shows at most three one-line hints and nothing at all when there are none.
+- **`changes`** is a deterministic view of what happened (memory receipts, Dream commits, handoffs, snapshots, relay runs), not an AI summary.
+- **Snapshots** are restore points of your data, not git commits. Restoring is a two-step CLI action with a one-time token and an automatic safety snapshot.
+
+Details: [docs/continuity.md](docs/continuity.md).
 
 ## Privacy and security model
 
@@ -126,7 +135,7 @@ Details: [docs/privacy.md](docs/privacy.md).
 
 ## Backup and recovery
 
-Back up `DATA_DIR` (it contains `memory/`, `dreams/`, `archive/`, `state/` and the optional game and lounge folders) plus your `.env` and `owner-config.json`. Restoring the Markdown is enough to recover every memory; search indexes can be rebuilt. Upgrading never overwrites your data. See [docs/upgrading.md](docs/upgrading.md).
+For a quick local restore point, ask your AI to run `snapshot_create` or use `common-ai-memory snapshot create`; restore with `common-ai-memory snapshot restore-plan` and `restore --confirm` (see [docs/continuity.md](docs/continuity.md#snapshots)). For off-machine backup, copy `DATA_DIR` (it contains `memory/`, `dreams/`, `archive/`, `state/` and the optional game and lounge folders) plus your `.env` and `owner-config.json`. Restoring the Markdown is enough to recover every memory; search indexes can be rebuilt. Upgrading never overwrites your data. See [docs/upgrading.md](docs/upgrading.md).
 
 ## Troubleshooting
 
@@ -138,7 +147,7 @@ More in [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Documentation
 
-[Quickstart](docs/quickstart.md) · [Configuration](docs/configuration.md) · [Feature maturity and limits](docs/features.md) · [MCP API](docs/mcp-api.md) · [Memory system](docs/memory-system.md) · [Retrieval](docs/retrieval-doctor.md) · [Provenance](docs/provenance.md) · [Dreams](docs/dreams.md) · [Deployment and UI](docs/deployment.md) · [Upgrading and backup](docs/upgrading.md) · [Privacy](docs/privacy.md) · [Architecture](docs/architecture.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Quickstart](docs/quickstart.md) · [Configuration](docs/configuration.md) · [Feature maturity and limits](docs/features.md) · [MCP API](docs/mcp-api.md) · [Memory system](docs/memory-system.md) · [Retrieval](docs/retrieval-doctor.md) · [Provenance](docs/provenance.md) · [Dreams](docs/dreams.md) · [Continuity](docs/continuity.md) · [Deployment and UI](docs/deployment.md) · [Upgrading and backup](docs/upgrading.md) · [Privacy](docs/privacy.md) · [Architecture](docs/architecture.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Tests
 

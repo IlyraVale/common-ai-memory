@@ -16,6 +16,8 @@ class LoungeError(RuntimeError):
 
 
 MAX_DELIVERED_RANGES = 64
+RELAY_ORIGIN = "agent_relay"
+RELAY_TEXT_LIMIT = 2000  # a bounded automatic reply (relay max_output_chars) may exceed the 1200 human limit
 
 
 class LoungeRoom:
@@ -301,14 +303,14 @@ class LoungeRoom:
         finally:
             self._release()
 
-    def send(self, target: str, text: str) -> dict[str, Any]:
+    def send(self, target: str, text: str, relay_requested: bool = False) -> dict[str, Any]:
         try:
             normalized = self._normalize_target(target)
         except ValueError as exc:
             return {"ok": False, "error": str(exc)}
         if normalized == self.agent_id:
             return {"ok": False, "error": "target must be another lounge identity"}
-        return self.post(text=text, attachments=[], target=normalized)
+        return self.post(text=text, attachments=[], target=normalized, relay_requested=relay_requested)
 
     @staticmethod
     def _parse_say(command: str) -> str | None:
@@ -361,8 +363,14 @@ class LoungeRoom:
         text: str = "",
         attachments: list[dict[str, Any]] | None = None,
         target: str | None = None,
+        relay_requested: bool = False,
+        origin: str | None = None,
+        relay_batch_key: str | None = None,
     ) -> dict[str, Any]:
         text = (text or "").strip()
+        relayed = origin == RELAY_ORIGIN
+        if relayed:
+            relay_requested = False  # an automatic reply can never ask for another automatic reply
         attachments = attachments or []
         try:
             target = self._normalize_target(target)
@@ -370,8 +378,10 @@ class LoungeRoom:
             return {"ok": False, "error": str(exc)}
         if not text and not attachments:
             return {"ok": False, "error": "message is empty"}
-        if len(text) > 1200:
+        if len(text) > (RELAY_TEXT_LIMIT if relayed else 1200):
             return {"ok": False, "error": "message must be 1200 characters or fewer"}
+        if relay_requested and not target:
+            return {"ok": False, "error": "relay_requested is only allowed on a direct message"}
         if not isinstance(attachments, list) or len(attachments) > 4:
             return {"ok": False, "error": "a message may contain at most 4 attachments"}
         clean_attachments = []
@@ -399,6 +409,12 @@ class LoungeRoom:
                 row["to"] = target
             if clean_attachments:
                 row["attachments"] = clean_attachments
+            if relay_requested:
+                row["relay_requested"] = True
+            if relayed:  # fields are only written when set, so ordinary rows keep their old shape
+                row.update({"origin": RELAY_ORIGIN, "hop_count": 1, "relay_requested": False})
+                if relay_batch_key:
+                    row["relay_batch_key"] = str(relay_batch_key)
             with self.messages_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             state["next_seq"] = seq + 1

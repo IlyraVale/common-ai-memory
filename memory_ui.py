@@ -31,6 +31,7 @@ from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+import continuity_ui
 import memory_atrium
 from config import __version__, env_path, load_dotenv
 from memory_manager import (
@@ -44,7 +45,9 @@ BRIDGE_URL = os.getenv("LOUNGE_BRIDGE_URL", "http://localhost:8879").rstrip("/")
 ADMIN_PREFIX = "/api/admin"
 GAMES_PREFIX = "/api/games"
 LOUNGE_PREFIX = "/api/lounge"
-PAGES = {"atrium": "/atrium", "manage": "/manage", "duplicates": "/duplicates", "games": "/games", "lounge": "/lounge"}
+PAGES = {"atrium": "/atrium", "manage": "/manage", "duplicates": "/duplicates", "games": "/games", "lounge": "/lounge",
+         "timeline": "/timeline", "handoffs": "/handoffs", "snapshots": "/snapshots"}
+CONTINUITY_PREFIX = "/api/continuity"
 
 THEME_STORAGE_KEY = "common-ai-memory-theme"
 
@@ -431,7 +434,7 @@ iframe{display:block;width:100%;height:calc(100% - 53px);border:0;background:var
 @media (max-width:600px){nav{padding:0 8px}nav b{display:none}nav a{padding:17px 7px 15px}.theme-switch button{padding:7px}}
 </style></head><body>
 <nav aria-label="Memory UI"><b>COMMON AI MEMORY</b>
-<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a>
+<a href="#atrium" data-page="atrium">中庭</a><a href="#manage" data-page="manage">管理</a><a href="#duplicates" data-page="duplicates">重复检查</a><a href="#games" data-page="games">游戏厅</a><a href="#lounge" data-page="lounge">聊天室</a><a href="#timeline" data-page="timeline">动态</a><a href="#handoffs" data-page="handoffs">断点</a><a href="#snapshots" data-page="snapshots">快照</a>
 <span class="spacer"></span>
 <div class="theme-switch" role="group" aria-label="界面主题">
 <button type="button" data-theme-choice="mono" aria-pressed="true">MONO</button>
@@ -439,7 +442,8 @@ iframe{display:block;width:100%;height:calc(100% - 53px);border:0;background:var
 </div></nav>
 <iframe id="view" title="Memory UI"></iframe>
 <script nonce="__NONCE__">
-const PAGES = {atrium: "/atrium", manage: "/manage", duplicates: "/duplicates", games: "/games", lounge: "/lounge"};
+const PAGES = {atrium: "/atrium", manage: "/manage", duplicates: "/duplicates", games: "/games", lounge: "/lounge",
+               timeline: "/timeline", handoffs: "/handoffs", snapshots: "/snapshots"};
 const THEME_KEY = "common-ai-memory-theme", THEMES = new Set(["mono","glass"]);
 const frame = document.getElementById("view");
 function savedTheme(){
@@ -728,6 +732,20 @@ def make_ui_handler(atrium: Any, api: ManagerApi, port: int, root: Path):
                 replacements = (('"/api/', f'"{prefix}/'), ('"/attachments/', f'"{LOUNGE_PREFIX}/attachments/'))
                 page, csp = viewer_page(module.HTML, replacements)
                 send(self, 200, page, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
+                return
+            if path in (PAGES["timeline"], PAGES["handoffs"], PAGES["snapshots"]):
+                page, csp = viewer_page(continuity_ui.page(path.strip("/")), ())
+                send(self, 200, page, "text/html; charset=utf-8", {"Content-Security-Policy": csp, "X-Frame-Options": "SAMEORIGIN"})
+                return
+            if path.startswith(CONTINUITY_PREFIX + "/"):  # read-only views; no model, no restore
+                if self.headers.get("X-Memory-UI") != "1":  # same custom-header rule as the admin API
+                    send_json(self, 403, {"error": "UI header required"})
+                    return
+
+                def continuity() -> None:
+                    status, payload = continuity_ui.api(root, path[len(CONTINUITY_PREFIX):], query)
+                    send_json(self, status, payload)
+                self._isolated("continuity", continuity)
                 return
             if path == ADMIN_PREFIX or path.startswith(ADMIN_PREFIX + "/"):
                 self._isolated("manager", lambda: dispatch_api(self, api, "GET", ADMIN_PREFIX))

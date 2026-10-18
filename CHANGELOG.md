@@ -2,7 +2,7 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
-## [Unreleased]
+## [0.4.0] - 2026-10-18
 
 ### Dream materials v2
 - Dream material candidates are the whole memory house (every owner, agent and shared); human manuals, stale, superseded and corrected memories are never used.
@@ -16,6 +16,11 @@ All notable changes to Common AI Memory. Versions follow [Semantic Versioning](h
 - Snapshots (`snapshot_create` / `list` / `verify` / `restore_plan`): managed data only, SQLite via the online backup API under the write lock, SHA256 manifest. Restore is CLI-only and two-step, with a one-time plan-bound token, a mandatory safety snapshot and rollback on failure.
 - Agent Relay (`common-ai-memory-relay`), off by default: `lounge_send(..., relay_requested=True)` may get one reply-only, single-hop automatic answer from a target that enabled Relay. Batched, cooldown and hourly/daily limits, bounded input/output, idempotent replies, failures never move inbox cursors.
 - UI: read-only 动态 (timeline), 断点 (handoffs) and 快照 (snapshots) pages and a Relay status panel.
+
+### Compatibility
+- No memory migration. New runtime files (`state/handoffs.sqlite3`, `state/relay.sqlite3`, `snapshots/`) appear on first use; see [docs/upgrading.md](docs/upgrading.md).
+- Agent Relay stays disabled unless `relay_enabled: true` is set for an identity; nothing schedules it.
+- Python support remains `>=3.10,<3.11`.
 
 ## [0.3.0] - 2026-10-04
 

@@ -4,7 +4,7 @@
 
 Common AI Memory is a local-first, long-term memory service for AI assistants. It runs on your own computer, stores every memory as a plain Markdown file, and exposes it to any MCP-capable client (for example a ChatGPT or Claude integration) through a small set of tools: `remember`, `recall`, `recent`, `update_memory`, `forget` and a few more. A local web UI lets you browse, edit and tidy the same memories yourself.
 
-Version 0.3.0 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
+Version 0.4.0 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
 
 ## What it is not
 
@@ -101,6 +101,8 @@ Dreams are optional, non-authoritative reflections written from memory material.
 | `api` | an adapter you register plus an API key in an environment variable | your adapter |
 
 An `on_wake` owner can also prefer a local CLI (`dream_preferred_runner: "cli"`) and fall back to `on_wake` whenever the CLI is missing, logged out or fails. The default needs no scheduler, CLI or API key. See [docs/dreams.md](docs/dreams.md).
+
+Dream material comes from the whole memory house: the day's new and recalled memories plus a small, varied set of older background memories, with a 7-day cooldown so the same few memories do not return night after night. Dreams are written as dream fiction (surreal, jump-cut, allowed to invent), are marked `derived=true` and `factual_authority=false`, and are never written back into memories.
 
 ## Passive Recall: real limits
 

@@ -16,6 +16,9 @@ Your data lives in `DATA_DIR` (default `./runtime`), never inside the installed 
 | `state/memory-witness.sqlite3`, `state/memory-feedback.sqlite3` | Exposure, witness and retrieval ledgers | History restarts from empty |
 | `state/dream-runtime.sqlite3`, `state/dream-prepared/` | Dream claims, commit records, prepared packets | A pending Dream is prepared again on the next `wake` |
 | `.lounge/`, `.games/`, `.lounge-bridge/` | Optional lounge messages, game state, bridge delivery state | Optional features start fresh |
+| `state/handoffs.sqlite3` | Short-lived handoff capsules | Open handoffs are gone (they expire anyway) |
+| `state/relay.sqlite3` | Agent Relay queue, runs and budget (only if Relay was enabled) | Relay history restarts from empty |
+| `snapshots/` | Local restore points made with `snapshot_create` | Those restore points are gone; your data is not |
 
 Logs go to `DATA_DIR/logs/` and `state/dream-scheduler/` and contain metadata only.
 
@@ -26,6 +29,8 @@ Logs go to `DATA_DIR/logs/` and `state/dream-scheduler/` and contain metadata on
 3. Keep at least one copy off the machine. The memory folder is plain Markdown, so you can also keep it in a private Git repository: if `DATA_DIR` is a Git worktree, each change is committed locally (never pushed).
 
 SQLite files are safe to copy while the services are stopped. Copy the `-wal`/`-shm` files with them if present.
+
+For a quick local restore point use `snapshot_create` (or `common-ai-memory snapshot create`). It does not replace an off-machine copy: snapshots live inside `DATA_DIR`. See [continuity.md](continuity.md#snapshots).
 
 ## Recovery
 
@@ -42,6 +47,12 @@ SQLite files are safe to copy while the services are stopped. Copy the `-wal`/`-
 5. Run `common-ai-memory-doctor`. If it reports an index as stale or from another model, rebuild it.
 
 Markdown memory files are read as they are. Older records without newer fields (`lifecycle`, `verification`, …) keep working with neutral defaults and are not rewritten. Dream history, commit records and prepared packets carry over; a Dream pending at upgrade time is claimed normally on the next `wake`.
+
+### From 0.3.0 to 0.4.0
+
+- No memory migration is needed. Dream history and commit records carry over; the next Dream simply uses the new material selection.
+- New optional tools (handoffs, `changes`, snapshots) need no configuration. Their files under `state/` and `snapshots/` are created on first use and ignored by Git.
+- Agent Relay is off. To try it, set `relay_enabled: true` for one identity in `owner-config.json` and run `common-ai-memory-relay --once` yourself; every relayed reply spends that identity's CLI quota.
 
 ### From 0.1.0 to 0.2.0
 

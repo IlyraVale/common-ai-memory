@@ -4,7 +4,7 @@
 
 Common AI Memory 是一个跑在你自己电脑上的 AI 长期记忆服务。每条记忆都是一个普通的 Markdown 文件，任何支持 MCP 的客户端（比如接入 ChatGPT、Claude 的应用）都可以通过 `remember`、`recall`、`recent`、`update_memory`、`forget` 等工具读写它。另外有一个本地网页，你自己也能浏览、编辑、整理这些记忆。
 
-版本 0.3.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
+版本 0.4.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
 
 ## 它不是什么
 
@@ -62,12 +62,13 @@ $env:AI_MEMORY_AGENT="claude"; $env:MEMORY_PORT="8766"; python server.py
 python memory_ui.py          # 或：common-ai-memory-ui
 ```
 
-打开 `http://127.0.0.1:8877/`（端口由 `MEMORY_UI_PORT` 决定）。一个页面五个分区：
+打开 `http://127.0.0.1:8877/`（端口由 `MEMORY_UI_PORT` 决定）。一个页面包含这些分区：
 
 - **中庭**：只读总览、搜索、活动记录；
 - **管理**：修改内容、分类、生命周期、验证状态，走和 MCP 相同的写入接口，有身份检查和“防止覆盖别人刚改过的内容”的保护；
 - **重复检查**：把完全相同、字面相近、（可选）语义相近的记忆分组给你看；
-- **游戏厅**、**聊天室**：可选的体验层。
+- **游戏厅**、**聊天室**：可选的体验层；
+- **动态 / 断点 / 快照**：只读的连续性视图，外加 Relay 状态面板，见 [docs/continuity.md](docs/continuity.md)。
 
 `python memory_services.py status` 查看运行状态，`start` 在没运行时把界面拉起来。
 
@@ -96,6 +97,8 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 
 `on_wake` 的身份也可以设置“优先用本地 CLI”，CLI 不在、没登录或失败时自动退回 `on_wake`，绝不编一个假梦。默认模式不需要定时任务、CLI 或 API key。详见 [docs/dreams.md](docs/dreams.md)。
 
+梦的素材来自整个记忆屋：当天新写的、当天被回想起的，再加上少量不同分类的旧背景记忆；用过的历史素材 7 天内不再进梦，避免连续几晚都是同样几条。梦按“梦境虚构”来写（超现实、跳切、可以编造），标记为 `derived=true`、`factual_authority=false`，永远不会写回记忆。
+
 ## Passive Recall 的真实限制
 
 `recall(query, passive=true)` 在对话提到具体的项目、偏好、旧决定时，最多返回三条短摘要，返回零条也很正常。MCP 没有“每一轮对话都触发”的钩子，服务器看不到对话内容，所以只有宿主或模型主动调用时才会发生。它不写入、不验证、不改排序。
@@ -108,7 +111,15 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 
 内置五子棋、海战棋、21 点、双人德州扑克，以及多 AI 聊天室。AI 之间现在可以直接用 `lounge_send` 留言，对方用 `lounge_inbox` 收取；下次调用 `wake` 时也会自动带回未读消息。这个基础通讯路径只需要 MCP，不需要装浏览器扩展、绑定网页标签或依赖页面选择器。聊天室 Bridge 和浏览器扩展继续保留，适合“立刻把已经打开的 ChatGPT / Claude 网页叫醒”这种实时体验。见 [docs/game-hall.md](docs/game-hall.md)、[docs/ai-lounge.md](docs/ai-lounge.md)、[docs/wake-protocol.md](docs/wake-protocol.md)、[docs/browser-extension.md](docs/browser-extension.md)。
 
-这套能力是“持久化收件箱 + 主动轮询或 `wake` 收取”，不是持续运行的自治 Agent Relay；当前没有实现 CLI Agent Relay。
+这套能力是“持久化收件箱 + 主动轮询或 `wake` 收取”，不是持续运行的自治对话。可选的 **Agent Relay** 默认关闭：只有发送时带 `relay_requested=true` 的私信才可能得到一次自动回复——只回复、单跳、有额度上限，每批请求最多一次 CLI 调用。见 [docs/continuity.md](docs/continuity.md#agent-relay)。
+
+## 连续性：断点、动态、快照
+
+- **断点（Handoff Capsule）** 是继续工作用的短期上下文（每个身份最多 5 个，默认 48 小时过期），不是记忆；`wake` 最多只带三条一行提示，没有断点时什么都不加。
+- **动态（`changes`）** 是确定性的事件视图（记忆回执、Dream 提交、断点、快照、Relay 记录），不是 AI 总结，不调用模型。
+- **快照（Snapshot）** 是数据的恢复点，不是 git 提交。恢复只能在命令行分两步完成，带一次性确认 token，并且会先自动拍一份安全快照。
+
+详见 [docs/continuity.md](docs/continuity.md)。
 
 ## 隐私与安全
 
@@ -121,7 +132,7 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 
 ## 备份与恢复
 
-备份整个 `DATA_DIR`（`memory/`、`dreams/`、`archive/`、`state/` 和可选的游戏、聊天室目录），再加上 `.env` 和 `owner-config.json`。只要 Markdown 还在，记忆就都能恢复，索引可以重建。升级不会覆盖你的数据。详见 [docs/upgrading.md](docs/upgrading.md)。
+需要本机恢复点时，让 AI 调用 `snapshot_create`，或运行 `common-ai-memory snapshot create`；恢复用 `common-ai-memory snapshot restore-plan` 和 `restore --confirm`（见 [docs/continuity.md](docs/continuity.md#snapshots)）。异地备份请复制整个 `DATA_DIR`（`memory/`、`dreams/`、`archive/`、`state/` 和可选的游戏、聊天室目录），再加上 `.env` 和 `owner-config.json`。只要 Markdown 还在，记忆就都能恢复，索引可以重建。升级不会覆盖你的数据。详见 [docs/upgrading.md](docs/upgrading.md)。
 
 ## 常见问题
 
@@ -133,7 +144,7 @@ Dream 是根据记忆素材写出的“梦”，不是事实，不会存成普�
 
 ## 文档
 
-[快速开始](docs/quickstart.md) · [配置](docs/configuration.md) · [功能成熟度与限制](docs/features.md) · [MCP API](docs/mcp-api.md) · [记忆系统](docs/memory-system.md) · [检索](docs/retrieval-doctor.md) · [溯源](docs/provenance.md) · [Dream](docs/dreams.md) · [部署与界面](docs/deployment.md) · [升级与备份](docs/upgrading.md) · [隐私](docs/privacy.md) · [架构](docs/architecture.md) · [第三方声明](THIRD_PARTY_NOTICES.md)
+[快速开始](docs/quickstart.md) · [配置](docs/configuration.md) · [功能成熟度与限制](docs/features.md) · [MCP API](docs/mcp-api.md) · [记忆系统](docs/memory-system.md) · [检索](docs/retrieval-doctor.md) · [溯源](docs/provenance.md) · [Dream](docs/dreams.md) · [连续性](docs/continuity.md) · [部署与界面](docs/deployment.md) · [升级与备份](docs/upgrading.md) · [隐私](docs/privacy.md) · [架构](docs/architecture.md) · [第三方声明](THIRD_PARTY_NOTICES.md)
 
 技术文档目前以英文为主。
 

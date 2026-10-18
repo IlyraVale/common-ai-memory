@@ -90,6 +90,9 @@ common-ai-memory snapshot restore <snapshot_id> --confirm <restore_token>
   file already moved is put back and the error says so.
 - Plans compare SQLite databases by content, not bytes, so a database that was only read does not show
   up as changed.
+- On Windows, restored files keep the access rules of the folders they are restored into (or of the file
+  they replace). If restoring would make a file readable by a broader group than its destination allows,
+  the restore stops and rolls back.
 
 ## Agent Relay
 

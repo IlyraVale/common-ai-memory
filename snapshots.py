@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import sqlite3
@@ -122,6 +123,222 @@ def _backup_sqlite(source: Path, target: Path) -> None:
             closing(sqlite3.connect(target)) as dst:
         src.backup(dst)
         dst.execute("PRAGMA journal_mode=DELETE")
+
+
+# --- Windows ACL guard for restore -----------------------------------------------------------------------
+# A file moved with os.replace keeps the ACL it had where it was created; it does not re-inherit from its new
+# parent. Restore therefore (1) builds staging and rollback folders that are protected from the moment they
+# exist, using the snapshots folder's own DACL as the template (SIDs only, never account names), (2) gives
+# every placed file the ACL of the file it replaces, or fresh inheritance from its new parent, and (3) refuses
+# to finish if a restored file would be readable by a broad principal that its destination does not already
+# allow. On other platforms these helpers do nothing.
+_WINDOWS = os.name == "nt"
+BROAD_SIDS = {"S-1-1-0": "Everyone", "S-1-5-32-545": "Users", "S-1-5-11": "Authenticated Users",
+              "S-1-5-32-546": "Guests", "S-1-5-7": "Anonymous", "S-1-5-2": "Network"}
+BROAD_ACCOUNTS = ("Guest", "CodexSandboxUsers", "CodexSandboxOnline", "CodexSandboxOffline")
+_SE_FILE_OBJECT = 1
+_DACL_INFO = 0x4
+_PROTECTED_DACL = 0x80000000
+_UNPROTECTED_DACL = 0x20000000
+
+if _WINDOWS:
+    import ctypes
+    from ctypes import wintypes
+
+    _advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _advapi32.GetNamedSecurityInfoW.argtypes = [wintypes.LPCWSTR, ctypes.c_int, wintypes.DWORD, ctypes.c_void_p,
+                                                 ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p,
+                                                 ctypes.POINTER(ctypes.c_void_p)]
+    _advapi32.SetNamedSecurityInfoW.argtypes = [wintypes.LPWSTR, ctypes.c_int, wintypes.DWORD, ctypes.c_void_p,
+                                                 ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+    _advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [
+        ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(wintypes.LPWSTR), ctypes.c_void_p]
+    _advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    _advapi32.GetSecurityDescriptorDacl.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.BOOL),
+                                                     ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.BOOL)]
+    _advapi32.ConvertStringSidToSidW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_void_p)]
+    _advapi32.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)]
+    _advapi32.LookupAccountNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p,
+                                              ctypes.POINTER(wintypes.DWORD), wintypes.LPWSTR,
+                                              ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(ctypes.c_int)]
+    _kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+
+    class _SecurityAttributes(ctypes.Structure):
+        _fields_ = [("nLength", wintypes.DWORD), ("lpSecurityDescriptor", ctypes.c_void_p),
+                    ("bInheritHandle", wintypes.BOOL)]
+
+    _kernel32.CreateDirectoryW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(_SecurityAttributes)]
+
+
+def _win_error(what: str, code: int | None = None) -> OSError:
+    code = ctypes.get_last_error() if code is None else code
+    return OSError(f"{what} failed (Windows error {code})")
+
+
+def _dacl_sddl(path: Path) -> str:
+    """The DACL of path as SDDL ("D:P(A;OICI;FA;;;S-1-5-18)..."). Empty string off Windows."""
+    if not _WINDOWS:
+        return ""
+    sd = ctypes.c_void_p()
+    rc = _advapi32.GetNamedSecurityInfoW(str(path), _SE_FILE_OBJECT, _DACL_INFO, None, None, None, None,
+                                         ctypes.byref(sd))
+    if rc:
+        raise _win_error("GetNamedSecurityInfo", rc)
+    try:
+        text = wintypes.LPWSTR()
+        if not _advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(sd, 1, _DACL_INFO,
+                                                                             ctypes.byref(text), None):
+            raise _win_error("ConvertSecurityDescriptorToStringSecurityDescriptor")
+        try:
+            return text.value or ""
+        finally:
+            _kernel32.LocalFree(text)
+    finally:
+        _kernel32.LocalFree(sd)
+
+
+def _normalize_sid(token: str) -> str:
+    """SDDL SID token ("SY", "BU", "S-1-5-...") to a full SID string."""
+    psid = ctypes.c_void_p()
+    if not _advapi32.ConvertStringSidToSidW(token, ctypes.byref(psid)):
+        return token
+    try:
+        text = wintypes.LPWSTR()
+        if not _advapi32.ConvertSidToStringSidW(psid, ctypes.byref(text)):
+            return token
+        try:
+            return text.value
+        finally:
+            _kernel32.LocalFree(text)
+    finally:
+        _kernel32.LocalFree(psid)
+
+
+def _aces(sddl: str) -> list[tuple[str, str, str, str]]:
+    """(type, flags, rights, sid) for every ACE in a DACL SDDL string."""
+    out = []
+    for body in re.findall(r"\(([^)]*)\)", sddl.split("S:", 1)[0]):
+        parts = body.split(";")
+        if len(parts) >= 6:
+            out.append((parts[0], parts[1], parts[2], _normalize_sid(parts[5])))
+    return out
+
+
+def _granted_sids(path: Path) -> set[str]:
+    """SIDs with an allow ACE that applies to path itself (inherit-only ACEs excluded)."""
+    if not _WINDOWS:
+        return set()
+    return {sid for kind, flags, _rights, sid in _aces(_dacl_sddl(path)) if kind == "A" and "IO" not in flags}
+
+
+def _inheritable_sids(directory: Path) -> set[str]:
+    """SIDs a new file created in directory would receive."""
+    if not _WINDOWS:
+        return set()
+    return {sid for kind, flags, _rights, sid in _aces(_dacl_sddl(directory)) if kind == "A" and "OI" in flags}
+
+
+def _broad_sids() -> dict[str, str]:
+    """Principals that must never gain access through a restore: well-known broad groups, the Guest and
+    Codex sandbox accounts if they exist, and Codex capability SIDs recorded on this machine."""
+    broad = dict(BROAD_SIDS)
+    if not _WINDOWS:
+        return broad
+    for name in BROAD_ACCOUNTS:
+        size, domain_size, use = wintypes.DWORD(0), wintypes.DWORD(0), ctypes.c_int()
+        _advapi32.LookupAccountNameW(None, name, None, ctypes.byref(size), None, ctypes.byref(domain_size),
+                                     ctypes.byref(use))
+        if not size.value:
+            continue
+        sid_buf = ctypes.create_string_buffer(size.value)
+        domain = ctypes.create_unicode_buffer(domain_size.value)
+        if _advapi32.LookupAccountNameW(None, name, sid_buf, ctypes.byref(size), domain,
+                                        ctypes.byref(domain_size), ctypes.byref(use)):
+            text = wintypes.LPWSTR()
+            if _advapi32.ConvertSidToStringSidW(sid_buf, ctypes.byref(text)):
+                try:
+                    broad[text.value] = name
+                finally:
+                    _kernel32.LocalFree(text)
+    cap = Path.home() / ".codex" / "cap_sid"
+    try:
+        for sid in re.findall(r"S-1-5-21-[0-9-]+", cap.read_text(encoding="utf-8")):
+            broad.setdefault(sid, "Codex sandbox capability")
+    except OSError:
+        pass
+    return broad
+
+
+def _protected_template(template_dir: Path) -> str:
+    """The template folder's DACL as a protected DACL with explicit (non-inherited) ACEs."""
+    if not _WINDOWS:
+        return ""
+    aces = []
+    for body in re.findall(r"\(([^)]*)\)", _dacl_sddl(template_dir).split("S:", 1)[0]):
+        parts = body.split(";")
+        flags = parts[1]
+        parts[1] = "".join(flags[i:i + 2] for i in range(0, len(flags), 2) if flags[i:i + 2] != "ID")
+        aces.append("(" + ";".join(parts) + ")")
+    return "D:P" + "".join(aces)
+
+
+def _with_security_descriptor(sddl: str, use) -> Any:
+    sd = ctypes.c_void_p()
+    if not _advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, 1, ctypes.byref(sd), None):
+        raise _win_error("ConvertStringSecurityDescriptorToSecurityDescriptor")
+    try:
+        return use(sd)
+    finally:
+        _kernel32.LocalFree(sd)
+
+
+def _make_protected_dir(path: Path, sddl: str) -> None:
+    """Create path (not its parents) with the given protected DACL in one step."""
+    if not _WINDOWS or not sddl:
+        path.mkdir(parents=False, exist_ok=False)
+        return
+
+    def create(sd):
+        attrs = _SecurityAttributes(ctypes.sizeof(_SecurityAttributes), sd, False)
+        if not _kernel32.CreateDirectoryW(str(path), ctypes.byref(attrs)):
+            raise _win_error("CreateDirectory")
+
+    _with_security_descriptor(sddl, create)
+
+
+def _set_dacl(path: Path, sddl: str) -> None:
+    """Apply sddl's DACL; "D:P..." stays protected, anything else re-inherits from the parent."""
+    if not _WINDOWS:
+        return
+    protected = sddl.startswith("D:P")
+
+    def apply(sd):
+        present, defaulted, dacl = wintypes.BOOL(), wintypes.BOOL(), ctypes.c_void_p()
+        if not _advapi32.GetSecurityDescriptorDacl(sd, ctypes.byref(present), ctypes.byref(dacl),
+                                                   ctypes.byref(defaulted)):
+            raise _win_error("GetSecurityDescriptorDacl")
+        info = _DACL_INFO | (_PROTECTED_DACL if protected else _UNPROTECTED_DACL)
+        rc = _advapi32.SetNamedSecurityInfoW(str(path), _SE_FILE_OBJECT, info, None, None, dacl, None)
+        if rc:
+            raise _win_error("SetNamedSecurityInfo", rc)
+
+    _with_security_descriptor(sddl, apply)
+
+
+def _explicit_dacl(sddl: str) -> str:
+    """Keep only the explicit ACEs of a DACL (inherited ones are recomputed from the parent)."""
+    head = "D:P" if sddl.startswith("D:P") else "D:"
+    keep = [f"({b})" for b in re.findall(r"\(([^)]*)\)", sddl.split("S:", 1)[0]) if "ID" not in b.split(";")[1]]
+    return head + "".join(keep)
+
+
+def _widened(path: Path, allowed: set[str], broad: dict[str, str]) -> list[str]:
+    """Broad principals that can access path although its destination does not allow them."""
+    if not _WINDOWS:
+        return []
+    return sorted({broad[sid] for sid in _granted_sids(path) if sid in broad and sid not in allowed})
 
 
 class SnapshotManager:
@@ -358,13 +575,35 @@ class SnapshotManager:
         staging = self.root / f".restore-staging-{stamp}"
         rollback = self.root / f".restore-rollback-{stamp}"
         manifest = {f["path"]: f for f in self._manifest(snapshot_id)["files"]}
+        template = _protected_template(self.base)  # staging/rollback get the snapshots folder's protection
+        broad = _broad_sids()
+
+        def destination_access() -> tuple[dict[str, str], dict[str, set[str]]]:
+            """For every file to place: the explicit DACL it replaces and the principals its destination allows."""
+            kept: dict[str, str] = {}
+            allow: dict[str, set[str]] = {}
+            for rel in plan["add"] + plan["overwrite"]:
+                live = self.root / rel
+                if live.exists():
+                    kept[rel] = _explicit_dacl(_dacl_sddl(live)) if _WINDOWS else ""
+                    allow[rel] = _granted_sids(live)
+                else:
+                    allow[rel] = _inheritable_sids(next(p for p in live.parents if p.exists()))
+            return kept, allow
+
+        _kept, allowed = destination_access()
         try:
+            _make_protected_dir(staging, template)
             for rel in plan["add"] + plan["overwrite"]:
                 target = staging / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source / rel, target)
+                shutil.copy2(source / rel, target)  # copies data and times, never the snapshot file's ACL
                 if _sha256(target) != manifest[rel]["sha256"]:
                     raise SnapshotError(f"staged copy of {rel} does not match the snapshot")
+                widened = _widened(target, allowed[rel], broad)  # staging must not be broader than the target
+                if widened:
+                    raise SnapshotError(f"staged copy of {rel} would be accessible to {', '.join(widened)}; "
+                                        "nothing was restored")
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
             raise
@@ -377,6 +616,9 @@ class SnapshotManager:
                     raise SnapshotError("data changed while preparing the restore; nothing was restored. "
                                         "Run restore-plan again.")
                 try:
+                    _make_protected_dir(rollback, template)
+                    kept_acl, allowed = destination_access()  # re-read under the lock, right before replacing
+
                     def aside(live: Path) -> None:
                         if live.exists():
                             keep = rollback / live.relative_to(self.root)
@@ -399,10 +641,17 @@ class SnapshotManager:
                         live.parent.mkdir(parents=True, exist_ok=True)
                         os.replace(staging / rel, live)
                         placed.append(live)
+                        # os.replace keeps the staging ACL; give the file the ACL it is replacing, or fresh
+                        # inheritance from its new folder.
+                        _set_dacl(live, kept_acl.get(rel, "D:"))
                     for rel in plan["add"] + plan["overwrite"]:
                         live = self.root / rel
                         if _sha256(live) != manifest[rel]["sha256"]:
                             raise SnapshotError(f"restored {rel} does not match the snapshot")
+                        widened = _widened(live, allowed[rel], broad)
+                        if widened:
+                            raise SnapshotError(f"restored {rel} would be accessible to {', '.join(widened)}; "
+                                                "the restore was rolled back")
                         if _is_sqlite(live) and _sqlite_summary(live)["integrity"] != "ok":
                             raise SnapshotError(f"restored database {rel} failed its integrity check")
                 except BaseException:

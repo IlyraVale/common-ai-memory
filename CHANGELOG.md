@@ -2,6 +2,11 @@
 
 All notable changes to Common AI Memory. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may add features and change defaults, with upgrade notes in [docs/upgrading.md](docs/upgrading.md).
 
+## [0.4.1] - 2026-10-18
+
+### Fixed
+- Prevent Windows snapshot restore from widening ACLs. Staging and rollback folders are now created protected (from the snapshots folder's own permissions, by SID), every restored file gets the permissions of the file it replaces or fresh inheritance from its destination folder, and restore refuses and rolls back if a restored file would become readable by a broad principal (Everyone, Users, Authenticated Users, Guests, sandbox accounts) that its destination does not already allow. Other platforms are unchanged.
+
 ## [0.4.0] - 2026-10-18
 
 ### Dream materials v2

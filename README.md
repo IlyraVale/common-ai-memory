@@ -4,7 +4,7 @@
 
 Common AI Memory is a local-first, long-term memory service for AI assistants. It runs on your own computer, stores every memory as a plain Markdown file, and exposes it to any MCP-capable client (for example a ChatGPT or Claude integration) through a small set of tools: `remember`, `recall`, `recent`, `update_memory`, `forget` and a few more. A local web UI lets you browse, edit and tidy the same memories yourself.
 
-Version 0.4.0 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
+Version 0.4.1 · Python 3.10 ([why only 3.10](docs/features.md#limitations)) · PolyForm Noncommercial 1.0.0 · [Changelog](CHANGELOG.md)
 
 ## What it is not
 

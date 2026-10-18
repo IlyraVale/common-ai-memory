@@ -4,7 +4,7 @@
 
 Common AI Memory 是一个跑在你自己电脑上的 AI 长期记忆服务。每条记忆都是一个普通的 Markdown 文件，任何支持 MCP 的客户端（比如接入 ChatGPT、Claude 的应用）都可以通过 `remember`、`recall`、`recent`、`update_memory`、`forget` 等工具读写它。另外有一个本地网页，你自己也能浏览、编辑、整理这些记忆。
 
-版本 0.4.0 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
+版本 0.4.1 · Python 3.10（[为什么只支持 3.10](docs/features.md#limitations)） · PolyForm Noncommercial 1.0.0 · [更新日志](CHANGELOG.md)
 
 ## 它不是什么
 
